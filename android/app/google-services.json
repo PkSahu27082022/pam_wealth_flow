@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "670703818696",
+    "project_id": "cloudsms-e9900",
+    "storage_bucket": "cloudsms-e9900.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:670703818696:android:021f51202ef45940b952fd",
+        "android_client_info": {
+          "package_name": "com.pam.wealth.flow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIqhto4Gk7yZphl2vC_1zF5aThSw1hUyE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
