@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../view-model/task-vm/reel_vm.dart';
+import '../../view-model/account-vm/user_vm.dart';
 
-class DailyTasksPage extends StatefulWidget {
+class DailyTasksPage extends ConsumerStatefulWidget {
   final String language;
   final bool currentTab;
 
@@ -9,14 +13,13 @@ class DailyTasksPage extends StatefulWidget {
     super.key,
     required this.language,
     required this.currentTab,
-
   });
 
   @override
-  State<DailyTasksPage> createState() => _DailyTasksPageState();
+  ConsumerState<DailyTasksPage> createState() => _DailyTasksPageState();
 }
 
-class _DailyTasksPageState extends State<DailyTasksPage>
+class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
     with WidgetsBindingObserver {
   // ===========================================================================
   // COLORS
@@ -24,16 +27,6 @@ class _DailyTasksPageState extends State<DailyTasksPage>
 
   static const Color gold = Color(0xFFDDB83A);
   static const Color background = Color(0xFF090D13);
-
-  // ===========================================================================
-  // TEST VIDEO URLS
-  // ===========================================================================
-
-  final List<String> videoUrls = [
-    'https://assets.testfiles.dev/video/sample-3s.mp4',
-    'https://cdn.truefilesize.com/mp4/sample-portrait.mp4',
-    'https://cdn.truefilesize.com/mp4/sample-5mb.mp4',
-  ];
 
   // ===========================================================================
   // PAGE CONTROLLER & STATE
@@ -70,13 +63,7 @@ class _DailyTasksPageState extends State<DailyTasksPage>
   @override
   void initState() {
     super.initState();
-    // Register App Lifecycle observer (background/foreground detection)
     WidgetsBinding.instance.addObserver(this);
-    Future.delayed(const Duration(milliseconds: 150), () {
-      if (mounted && widget.currentTab) {
-        _loadVideo(0);
-      }
-    });
   }
 
   @override
@@ -84,10 +71,12 @@ class _DailyTasksPageState extends State<DailyTasksPage>
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.currentTab != widget.currentTab) {
-
       if (widget.currentTab) {
         if (videoController == null) {
-          _loadVideo(currentIndex);
+          final reelsAsync = ref.read(reelsProvider);
+          reelsAsync.whenData((reels) {
+            if (reels.isNotEmpty) _loadVideo(reels, currentIndex);
+          });
         } else {
           videoController?.play();
         }
@@ -96,8 +85,7 @@ class _DailyTasksPageState extends State<DailyTasksPage>
       }
     }
   }
-  // Handle App Lifecycle Changes (App Backgrounded / Minimized)
-// Handle App Lifecycle Changes (App Backgrounded / Minimized)
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
@@ -105,19 +93,15 @@ class _DailyTasksPageState extends State<DailyTasksPage>
     final controller = videoController;
     if (controller == null || !controller.value.isInitialized) return;
 
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {
-      // Pause video when app goes to background
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
       controller.pause();
     } else if (state == AppLifecycleState.resumed) {
-      // ONLY resume if this is currently the active tab!
       if (widget.currentTab) {
         controller.play();
       }
     }
   }
 
-  // Called when this route is removed or replaced via Navigation
   @override
   void deactivate() {
     videoController?.pause();
@@ -128,8 +112,7 @@ class _DailyTasksPageState extends State<DailyTasksPage>
   // LOAD VIDEO
   // ===========================================================================
 
-  Future<void> _loadVideo(int index) async {
-    // 1. Pause and dispose the previous controller first
+  Future<void> _loadVideo(List reels, int index) async {
     final oldController = videoController;
     videoController = null;
     if (oldController != null) {
@@ -145,8 +128,10 @@ class _DailyTasksPageState extends State<DailyTasksPage>
       currentIndex = index;
     });
 
+    if (index >= reels.length) return;
+
     final controller = VideoPlayerController.networkUrl(
-      Uri.parse(videoUrls[index]),
+      Uri.parse(reels[index].videoUrl),
     );
 
     videoController = controller;
@@ -164,21 +149,15 @@ class _DailyTasksPageState extends State<DailyTasksPage>
         isLoading = false;
       });
 
-      await controller.play();
+      if (widget.currentTab) {
+        await controller.play();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         isLoading = false;
       });
     }
-  }
-
-  // ===========================================================================
-  // PLAY / PAUSE CONTROLS
-  // ===========================================================================
-
-  void _onPageChanged(int index) {
-    _loadVideo(index);
   }
 
   void _togglePlayPause() {
@@ -194,44 +173,62 @@ class _DailyTasksPageState extends State<DailyTasksPage>
     });
   }
 
-  void onCompleteTask() {
-    final controller = videoController;
-    if (controller == null || !controller.value.isInitialized) return;
+  // ===========================================================================
+  // COMPLETE TASK & DISTRIBUTE REWARDS
+  // ===========================================================================
 
-    setState(() {
-      isCompleted = true;
-    });
+  void onCompleteTask(String activeTier) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          tr(
-            'Task completed successfully',
-            'လုပ်ငန်းပြီးမြောက်ပါပြီ',
+    // Get rewards specs based on current tier title
+    double reward = 10.0;
+    int maxTasks = 3;
+
+    if (activeTier == 'SV2') { reward = 12.0; maxTasks = 3; }
+    else if (activeTier == 'SV3') { reward = 20.0; maxTasks = 6; }
+    else if (activeTier == 'GV1') { reward = 30.0; maxTasks = 12; }
+    else if (activeTier == 'GV2') { reward = 40.0; maxTasks = 25; }
+    else if (activeTier == 'GV3') { reward = 85.0; maxTasks = 30; }
+    else if (activeTier == 'GO') { reward = 18.0; maxTasks = 5; }
+    else if (activeTier == 'PLUS') { reward = 36.0; maxTasks = 5; }
+    else if (activeTier == 'PRO') { reward = 54.0; maxTasks = 5; }
+    else if (activeTier == 'MAX') { reward = 84.0; maxTasks = 5; }
+    else if (activeTier == 'ULTRA') { reward = 102.0; maxTasks = 5; }
+    else if (activeTier == 'INFINITY') { reward = 204.0; maxTasks = 5; }
+
+    final error = await ref.read(userViewModelProvider).completeTaskReward(uid, reward, maxTasks);
+
+    if (!mounted) return;
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
+      );
+    } else {
+      setState(() {
+        isCompleted = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${tr('Task completed successfully! Received', 'လုပ်ငန်းအောင်မြင်စွာပြီးဆုံးပါပြီ။')} $reward THB',
           ),
+          backgroundColor: Colors.green,
         ),
-        backgroundColor: Colors.green,
-      ),
-    );
+      );
+    }
   }
-
-  // ===========================================================================
-  // DISPOSE
-  // ===========================================================================
 
   @override
   void dispose() {
-    // Unregister App Lifecycle observer
     WidgetsBinding.instance.removeObserver(this);
-
-    // Pause & Dispose Video Controller
     videoController?.pause();
     videoController?.dispose();
     pageController.dispose();
-
     super.dispose();
   }
-
 
   // ===========================================================================
   // BUILD
@@ -239,117 +236,63 @@ class _DailyTasksPageState extends State<DailyTasksPage>
 
   @override
   Widget build(BuildContext context) {
+    final reelsAsync = ref.watch(reelsProvider);
+    final userAsync = ref.watch(userProfileProvider);
+
+    final userProfile = userAsync.value;
+    final activeTier = userProfile?.activeTier ?? 'Internship';
+
     return Scaffold(
       backgroundColor: background,
       body: SafeArea(
-        child: Stack(
-          children: [
-            // REELS PAGEVIEW
-            PageView.builder(
-              controller: pageController,
-              scrollDirection: Axis.vertical,
-              physics: const BouncingScrollPhysics(),
-              itemCount: videoUrls.length,
-              onPageChanged: _onPageChanged,
-              itemBuilder: (context, index) {
-                return _buildReel(index);
-              },
-            ),
-
-            // TOP HEADER
-            // Positioned(
-            //   top: 15,
-            //   left: 20,
-            //   right: 20,
-            //   child: Row(
-            //     children: [
-            //       GestureDetector(
-            //         onTap: () async {
-            //           // Explicitly pause before popping screen back
-            //           await videoController?.pause();
-            //           if (context.mounted) {
-            //             Navigator.pop(context);
-            //           }
-            //         },
-            //         child: Container(
-            //           width: 42,
-            //           height: 42,
-            //           decoration: BoxDecoration(
-            //             color: Colors.black.withOpacity(0.40),
-            //             shape: BoxShape.circle,
-            //           ),
-            //           child: const Icon(
-            //             Icons.arrow_back,
-            //             color: Colors.white,
-            //             size: 25,
-            //           ),
-            //         ),
-            //       ),
-            //       Expanded(
-            //         child: Center(
-            //           child: Text(
-            //             tr(
-            //               'Daily Tasks',
-            //               'နေ့စဉ်လုပ်ငန်းများ',
-            //             ),
-            //             style: const TextStyle(
-            //               color: gold,
-            //               fontSize: 22,
-            //               fontWeight: FontWeight.w700,
-            //             ),
-            //           ),
-            //         ),
-            //       ),
-            //       Container(
-            //         padding: const EdgeInsets.symmetric(
-            //           horizontal: 12,
-            //           vertical: 7,
-            //         ),
-            //         decoration: BoxDecoration(
-            //           color: Colors.black.withOpacity(0.40),
-            //           borderRadius: BorderRadius.circular(15),
-            //         ),
-            //         child: Text(
-            //           '${currentIndex + 1}/${videoUrls.length}',
-            //           style: const TextStyle(
-            //             color: Colors.white,
-            //             fontSize: 13,
-            //             fontWeight: FontWeight.w600,
-            //           ),
-            //         ),
-            //       ),
-            //     ],
-            //   ),
-            // ),
-
-            // SWIPE INDICATOR
-            if (currentIndex == 0)
-              Positioned(
-                right: 15,
-                top: MediaQuery.of(context).size.height * 0.43,
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.keyboard_arrow_up,
-                      color: Colors.white70,
-                      size: 25,
-                    ),
-                    Text(
-                      tr('Swipe', 'ပွတ်ဆွဲပါ'),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                      ),
-                    ),
-                    const Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Colors.white70,
-                      size: 25,
-                    ),
-                  ],
+        child: reelsAsync.when(
+          data: (reels) {
+            if (reels.isEmpty) {
+              return Center(
+                child: Text(
+                  tr('No videos available.', 'ဗီဒီယိုများမရှိသေးပါ။'),
+                  style: const TextStyle(color: Colors.white),
                 ),
-              ),
-          ],
+              );
+            }
+
+            // Fire first video load if initialized and controller is empty
+            if (videoController == null && widget.currentTab) {
+              Future.microtask(() => _loadVideo(reels, currentIndex));
+            }
+
+            return Stack(
+              children: [
+                PageView.builder(
+                  controller: pageController,
+                  scrollDirection: Axis.vertical,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: reels.length,
+                  onPageChanged: (index) => _loadVideo(reels, index),
+                  itemBuilder: (context, index) {
+                    return _buildReel(index, reels[index], activeTier);
+                  },
+                ),
+                if (currentIndex == 0)
+                  Positioned(
+                    right: 15,
+                    top: MediaQuery.of(context).size.height * 0.43,
+                    child: Column(
+                      children: [
+                        const Icon(Icons.keyboard_arrow_up, color: Colors.white70, size: 25),
+                        Text(
+                          tr('Swipe', 'ပွတ်ဆွဲပါ'),
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                        const Icon(Icons.keyboard_arrow_down, color: Colors.white70, size: 25),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: gold)),
+          error: (err, stack) => Center(child: Text('Error: $err')),
         ),
       ),
     );
@@ -359,15 +302,13 @@ class _DailyTasksPageState extends State<DailyTasksPage>
   // SINGLE REEL WIDGET
   // ===========================================================================
 
-  Widget _buildReel(int index) {
+  Widget _buildReel(int index, dynamic reel, String activeTier) {
     final controller = videoController;
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (index == currentIndex &&
-            controller != null &&
-            controller.value.isInitialized)
+        if (index == currentIndex && controller != null && controller.value.isInitialized)
           FittedBox(
             fit: BoxFit.cover,
             child: SizedBox(
@@ -379,14 +320,9 @@ class _DailyTasksPageState extends State<DailyTasksPage>
         else
           Container(
             color: const Color(0xFF10141A),
-            child: const Center(
-              child: CircularProgressIndicator(
-                color: gold,
-              ),
-            ),
+            child: const Center(child: CircularProgressIndicator(color: gold)),
           ),
 
-        // GRADIENT OVERLAY
         Positioned.fill(
           child: IgnorePointer(
             child: DecoratedBox(
@@ -406,18 +342,10 @@ class _DailyTasksPageState extends State<DailyTasksPage>
           ),
         ),
 
-        // LOADING SPINNER
         if (index == currentIndex && isLoading)
-          const Center(
-            child: CircularProgressIndicator(
-              color: gold,
-            ),
-          ),
+          const Center(child: CircularProgressIndicator(color: gold)),
 
-        // PLAY / PAUSE BUTTON
-        if (index == currentIndex &&
-            controller != null &&
-            controller.value.isInitialized)
+        if (index == currentIndex && controller != null && controller.value.isInitialized)
           Center(
             child: GestureDetector(
               onTap: _togglePlayPause,
@@ -429,9 +357,7 @@ class _DailyTasksPageState extends State<DailyTasksPage>
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  controller.value.isPlaying
-                      ? Icons.pause
-                      : Icons.play_arrow,
+                  controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
                   color: Colors.white,
                   size: 40,
                 ),
@@ -439,7 +365,6 @@ class _DailyTasksPageState extends State<DailyTasksPage>
             ),
           ),
 
-        // RIGHT SIDE TASK BADGE
         Positioned(
           right: 18,
           bottom: 115,
@@ -452,26 +377,17 @@ class _DailyTasksPageState extends State<DailyTasksPage>
                   color: Colors.black.withOpacity(0.40),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.task_alt,
-                  color: gold,
-                  size: 28,
-                ),
+                child: const Icon(Icons.task_alt, color: gold, size: 28),
               ),
               const SizedBox(height: 8),
               Text(
                 '${index + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ],
           ),
         ),
 
-        // BOTTOM CONTENT & ACTION BUTTON
         Positioned(
           left: 25,
           right: 25,
@@ -480,12 +396,8 @@ class _DailyTasksPageState extends State<DailyTasksPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                taskTitle(index),
-                style: const TextStyle(
-                  color: gold,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                ),
+                reel.title,
+                style: const TextStyle(color: gold, fontSize: 24, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
@@ -493,35 +405,25 @@ class _DailyTasksPageState extends State<DailyTasksPage>
                   'Watch this video to complete your daily task.',
                   'နေ့စဉ်လုပ်ငန်းပြီးမြောက်ရန် ဤဗီဒီယိုကို ကြည့်ပါ။',
                 ),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: isCompleted ? null : onCompleteTask,
+                  onPressed: isCompleted ? null : () => onCompleteTask(activeTier),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: gold,
                     disabledBackgroundColor: Colors.grey.shade700,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(17),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
                   ),
                   child: Text(
                     isCompleted
                         ? tr('Completed', 'ပြီးမြောက်ပြီး')
                         : tr('Complete Task', 'လုပ်ငန်းပြီးမြောက်ရန်'),
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: const TextStyle(color: Colors.black, fontSize: 17, fontWeight: FontWeight.w800),
                   ),
                 ),
               ),

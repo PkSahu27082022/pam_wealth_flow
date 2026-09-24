@@ -143,6 +143,9 @@ class AuthService {
         referredBy: validReferralCode,
         language: currentLang,
         createdAt: DateTime.now(),
+        activeTier: 'Internship',
+        balance: 0.0,
+        tasksCompletedToday: 0,
       );
 
       await _firestore.collection('users').doc(uid).set(newUser.toMap());

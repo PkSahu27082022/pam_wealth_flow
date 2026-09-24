@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../view-model/investment-vm/investment_tier_vm.dart';
+import '../../view-model/account-vm/user_vm.dart';
 
-class InvestmentTiersPage extends StatelessWidget {
+
+class InvestmentTiersPage extends ConsumerWidget {
   final String language;
 
   const InvestmentTiersPage({super.key, required this.language});
@@ -24,11 +29,35 @@ class InvestmentTiersPage extends StatelessWidget {
   }
 
   // ===========================================================================
+  // FALLBACK HARDCODED TIERS
+  // ===========================================================================
+  List<Map<String, String>> _fallbackTiers() {
+    return [
+      {'title': 'Internship', 'dailyTask': '3 Tasks', 'payPerTask': '10 THB', 'dailyRoi': '30 THB', 'investmentAmount': '0 THB'},
+      {'title': 'SV1', 'dailyTask': '3 Tasks', 'payPerTask': '10 THB', 'dailyRoi': '30 THB', 'investmentAmount': '500 THB'},
+      {'title': 'SV2', 'dailyTask': '3 Tasks', 'payPerTask': '12 THB', 'dailyRoi': '36 THB', 'investmentAmount': '1200 THB'},
+      {'title': 'SV3', 'dailyTask': '6 Tasks', 'payPerTask': '20 THB', 'dailyRoi': '120 THB', 'investmentAmount': '3900 THB'},
+      {'title': 'GV1', 'dailyTask': '12 Tasks', 'payPerTask': '30 THB', 'dailyRoi': '360 THB', 'investmentAmount': '11000 THB'},
+      {'title': 'GV2', 'dailyTask': '25 Tasks', 'payPerTask': '40 THB', 'dailyRoi': '1000 THB', 'investmentAmount': '28000 THB'},
+      {'title': 'GV3', 'dailyTask': '30 Tasks', 'payPerTask': '85 THB', 'dailyRoi': '2550 THB', 'investmentAmount': '70000 THB'},
+      {'title': 'GO', 'dailyTask': '5 Videos', 'payPerTask': '18 THB', 'dailyRoi': '90 THB', 'investmentAmount': '3,000 THB'},
+      {'title': 'PLUS', 'dailyTask': '5 Videos', 'payPerTask': '36 THB', 'dailyRoi': '180 THB', 'investmentAmount': '6,000 THB'},
+      {'title': 'PRO', 'dailyTask': '5 Videos', 'payPerTask': '54 THB', 'dailyRoi': '270 THB', 'investmentAmount': '9,000 THB'},
+      {'title': 'MAX', 'dailyTask': '5 Videos', 'payPerTask': '84 THB', 'dailyRoi': '420 THB', 'investmentAmount': '12,000 THB'},
+      {'title': 'ULTRA', 'dailyTask': '5 Videos', 'payPerTask': '102 THB', 'dailyRoi': '510 THB', 'investmentAmount': '15,000 THB'},
+      {'title': 'INFINITY', 'dailyTask': '5 Videos', 'payPerTask': '204 THB', 'dailyRoi': '1,020 THB', 'investmentAmount': '30,000 THB'},
+    ];
+  }
+
+  // ===========================================================================
   // BUILD
   // ===========================================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tiersAsync = ref.watch(investmentTiersProvider);
+    final userAsync = ref.watch(userProfileProvider);
+
     return Container(
       width: double.infinity,
       height: double.infinity,
@@ -79,100 +108,50 @@ class InvestmentTiersPage extends StatelessWidget {
               // ===============================================================
               // ACTIVE PORTFOLIO
               // ===============================================================
-              _activePortfolioCard(),
+              userAsync.when(
+                data: (user) => _activePortfolioCard(
+                  user?.activeTier ?? 'Internship',
+                  user?.balance ?? 0.0,
+                ),
+                loading: () => _activePortfolioCard('Loading...', 0.0),
+                error: (e, s) => _activePortfolioCard('Internship', 0.0),
+              ),
 
               const SizedBox(height: 20),
 
               // ===============================================================
-              // INTERNSHIP
+              // TIERS LIST FROM RIVERPOD/FIREBASE
               // ===============================================================
-              _tierCard(
-                title: 'Internship',
-                dailyCapacity: '3 Tasks',
-                orderRate: '10 THB',
-                potentialROI: '30 THB',
-                capitalRequirement: '0 THB',
+              tiersAsync.when(
+                data: (tiers) {
+                  if (tiers.isEmpty) {
+                    return _buildFallbackList(context, ref);
+                  }
+                  return Column(
+                    children: tiers.map((tier) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 28),
+                        child: _tierCard(
+                          context: context,
+                          ref: ref,
+                          title: tier.title,
+                          dailyCapacity: tier.dailyTask,
+                          orderRate: tier.payPerTask,
+                          potentialROI: tier.dailyRoi,
+                          capitalRequirement: tier.investmentAmount,
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40.0),
+                    child: CircularProgressIndicator(color: gold),
+                  ),
+                ),
+                error: (err, stack) => _buildFallbackList(context, ref),
               ),
-
-              const SizedBox(height: 28),
-
-              // ===============================================================
-              // SV1
-              // ===============================================================
-              _tierCard(
-                title: 'SV1',
-                dailyCapacity: '3 Tasks',
-                orderRate: '10 THB',
-                potentialROI: '30 THB',
-                capitalRequirement: '500 THB',
-              ),
-
-              const SizedBox(height: 28),
-
-              // ===============================================================
-              // SV2
-              // ===============================================================
-              _tierCard(
-                title: 'SV2',
-                dailyCapacity: '3 Tasks',
-                orderRate: '12 THB',
-                potentialROI: '36 THB',
-                capitalRequirement: '1200 THB',
-              ),
-
-              const SizedBox(height: 28),
-
-              // ===============================================================
-              // SV3
-              // ===============================================================
-              _tierCard(
-                title: 'SV3',
-                dailyCapacity: '6 Tasks',
-                orderRate: '20 THB',
-                potentialROI: '120 THB',
-                capitalRequirement: '3900 THB',
-              ),
-
-              const SizedBox(height: 28),
-
-              // ===============================================================
-              // GV1
-              // ===============================================================
-              _tierCard(
-                title: 'GV1',
-                dailyCapacity: '12 Tasks',
-                orderRate: '30 THB',
-                potentialROI: '360 THB',
-                capitalRequirement: '11000 THB',
-              ),
-
-              const SizedBox(height: 28),
-
-              // ===============================================================
-              // GV2
-              // ===============================================================
-              _tierCard(
-                title: 'GV2',
-                dailyCapacity: '25 Tasks',
-                orderRate: '40 THB',
-                potentialROI: '1000 THB',
-                capitalRequirement: '28000 THB',
-              ),
-
-              const SizedBox(height: 28),
-
-              // ===============================================================
-              // GV3
-              // ===============================================================
-              _tierCard(
-                title: 'GV3',
-                dailyCapacity: '30 Tasks',
-                orderRate: '85 THB',
-                potentialROI: '2550 THB',
-                capitalRequirement: '70000 THB',
-              ),
-
-              const SizedBox(height: 30),
             ],
           ),
         ),
@@ -180,11 +159,31 @@ class InvestmentTiersPage extends StatelessWidget {
     );
   }
 
+  Widget _buildFallbackList(BuildContext context, WidgetRef ref) {
+    final fallbacks = _fallbackTiers();
+    return Column(
+      children: fallbacks.map((tier) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 28),
+          child: _tierCard(
+            context: context,
+            ref: ref,
+            title: tier['title']!,
+            dailyCapacity: tier['dailyTask']!,
+            orderRate: tier['payPerTask']!,
+            potentialROI: tier['dailyRoi']!,
+            capitalRequirement: tier['investmentAmount']!,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   // ===========================================================================
   // ACTIVE PORTFOLIO CARD
   // ===========================================================================
 
-  Widget _activePortfolioCard() {
+  Widget _activePortfolioCard(String activeTier, double balance) {
     return Container(
       width: double.infinity,
 
@@ -202,11 +201,8 @@ class InvestmentTiersPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          // ===============================================================
-          // ACTIVE PORTFOLIO
-          // ===============================================================
           Text(
-            tr('Active Portfolio: GV1', 'လက်ရှိ Portfolio: GV1'),
+            '${tr('Active Portfolio', 'လက်ရှိ Portfolio')}: $activeTier',
 
             style: const TextStyle(
               color: gold,
@@ -217,21 +213,18 @@ class InvestmentTiersPage extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          // ===============================================================
-          // ALLOCATION + EXPIRY
-          // ===============================================================
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
               Expanded(
                 child: Text(
-                  tr('Daily Allocation: 12 Units', 'နေ့စဉ်ခွဲဝေမှု: 12 Units'),
+                  '${tr('Balance', 'လက်ကျန်ငွေ')}: ${balance.toStringAsFixed(2)} THB',
 
                   style: const TextStyle(
                     color: white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -277,12 +270,17 @@ class InvestmentTiersPage extends StatelessWidget {
   // ===========================================================================
 
   Widget _tierCard({
+    required BuildContext context,
+    required WidgetRef ref,
     required String title,
     required String dailyCapacity,
     required String orderRate,
     required String potentialROI,
     required String capitalRequirement,
   }) {
+    final userProfile = ref.read(userProfileProvider).value;
+    final isCurrent = userProfile?.activeTier == title;
+
     return Container(
       width: double.infinity,
 
@@ -292,30 +290,42 @@ class InvestmentTiersPage extends StatelessWidget {
         color: cardColor,
 
         borderRadius: BorderRadius.circular(20),
+        border: isCurrent ? Border.all(color: gold, width: 1.5) : null,
       ),
 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          // ===============================================================
-          // TITLE
-          // ===============================================================
-          Text(
-            title,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
 
-            style: const TextStyle(
-              color: gold,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
+                style: const TextStyle(
+                  color: gold,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (isCurrent)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: gold.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    tr('Active', 'အသုံးပြုနေသည်'),
+                    style: const TextStyle(color: gold, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+            ],
           ),
 
           const SizedBox(height: 12),
 
-          // ===============================================================
-          // INFORMATION
-          // ===============================================================
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -323,62 +333,78 @@ class InvestmentTiersPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _infoRow(
-                    tr('Daily Capacity', 'နေ့စဉ်လုပ်ဆောင်နိုင်မှု'),
+                    tr('Daily Task', 'နေ့စဉ်တာဝန်'),
                     dailyCapacity,
                   ),
 
                   const SizedBox(height: 5),
 
-                  _infoRow(tr('Order Rate', 'အော်ဒါနှုန်း'), orderRate),
+                  _infoRow(tr('Pay Per Task', 'တာဝန်တစ်ခုနှုန်း'), orderRate),
 
                   const SizedBox(height: 5),
 
                   _infoRow(
-                    tr('Potential ROI', 'ဖြစ်နိုင်သော ROI'),
+                    tr('Daily ROI', 'နေ့စဉ်ရရှိငွေ'),
                     potentialROI,
                   ),
 
                   const SizedBox(height: 5),
 
                   _infoRow(
-                    tr('Capital Requirement', 'လိုအပ်သောမတည်ငွေ'),
+                    tr('Investment Amount', 'ရင်းနှီးမြှုပ်နှံငွေ'),
                     capitalRequirement,
                   ),
                 ],
               ),
-              OutlinedButton(
-                onPressed: () {
-                  // Unlock action
-                },
+              if (!isCurrent)
+                OutlinedButton(
+                  onPressed: () async {
+                    final uid = FirebaseAuth.instance.currentUser?.uid;
+                    if (uid == null) return;
 
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: const Color(0xFF292823),
+                    // Parse numerical value out of requirement string (e.g. "3,000 THB" -> 3000.0)
+                    final costStr = capitalRequirement.replaceAll(RegExp(r'[^0-9]'), '');
+                    final cost = double.tryParse(costStr) ?? 0.0;
 
-                  side: const BorderSide(color: gold, width: 1.7),
+                    final error = await ref.read(userViewModelProvider).unlockTier(uid, title, cost);
+                    if (context.mounted) {
+                      if (error != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(error), backgroundColor: Colors.red),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(tr('Plan Unlocked Successfully!', 'အစီအစဉ်ကို အောင်မြင်စွာ ဖွင့်လှစ်ပြီးပါပြီ။')),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    }
+                  },
 
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFF292823),
+
+                    side: const BorderSide(color: gold, width: 1.7),
+
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                  ),
+
+                  child: Text(
+                    tr('Unlock', 'ဖွင့်ရန်'),
+
+                    style: const TextStyle(
+                      color: gold,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-
-                child: Text(
-                  tr('Unlock', 'ဖွင့်ရန်'),
-
-                  style: const TextStyle(
-                    color: gold,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
             ],
           ),
-
-          // const SizedBox(height: 20),
-
-          // ===============================================================
-          // UNLOCK BUTTON
-          // ===============================================================
         ],
       ),
     );
