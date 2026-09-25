@@ -4,6 +4,10 @@ import 'package:video_player/video_player.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../view-model/task-vm/reel_vm.dart';
 import '../../view-model/account-vm/user_vm.dart';
+import '../../view-model/investment-vm/investment_tier_vm.dart';
+import '../../model/investment_tier_model.dart';
+import '../../model/reel_model.dart';
+import '../../service/snackbar_service.dart';
 
 class DailyTasksPage extends ConsumerStatefulWidget {
   final String language;
@@ -40,6 +44,15 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
   bool isLoading = true;
   bool isCompleted = false;
 
+  // New states for task progress
+  double _videoProgress = 0.0;
+  bool _hasWatchedFully = false;
+  InvestmentTierModel? _currentTier;
+  String? _currentVideoId;
+  String? _currentVideoTitle;
+
+  bool _watchAgainMode = false;
+
   // ===========================================================================
   // LANGUAGE HELPERS
   // ===========================================================================
@@ -48,12 +61,6 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
 
   String tr(String english, String burmese) {
     return isBurmese ? burmese : english;
-  }
-
-  String taskTitle(int index) {
-    return isBurmese
-        ? 'ဗီဒီယိုလုပ်ငန်း #${index + 1}'
-        : 'Task Video #${index + 1}';
   }
 
   // ===========================================================================
@@ -73,10 +80,7 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
     if (oldWidget.currentTab != widget.currentTab) {
       if (widget.currentTab) {
         if (videoController == null) {
-          final reelsAsync = ref.read(reelsProvider);
-          reelsAsync.whenData((reels) {
-            if (reels.isNotEmpty) _loadVideo(reels, currentIndex);
-          });
+          _refreshVideoList();
         } else {
           videoController?.play();
         }
@@ -84,6 +88,25 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
         videoController?.pause();
       }
     }
+  }
+
+  void _refreshVideoList() {
+    final reelsAsync = ref.read(reelsProvider);
+    reelsAsync.whenData((reels) {
+      if (reels.isNotEmpty) {
+        final user = ref.read(userProfileProvider).value;
+        if (user != null && user.activeTier != 'None') {
+          final watchedVideoIds = user.watchedVideoIds;
+          final availableReels = reels.where((r) => !watchedVideoIds.contains(r.id)).toList();
+          
+          if (!_watchAgainMode && availableReels.isNotEmpty) {
+             _loadVideo(availableReels, 0);
+          } else if (_watchAgainMode) {
+             _loadVideo(reels, 0);
+          }
+        }
+      }
+    });
   }
 
   @override
@@ -112,10 +135,13 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
   // LOAD VIDEO
   // ===========================================================================
 
-  Future<void> _loadVideo(List reels, int index) async {
+  Future<void> _loadVideo(List<ReelModel> reels, int index) async {
+    if (reels.isEmpty || index >= reels.length) return;
+    
     final oldController = videoController;
     videoController = null;
     if (oldController != null) {
+      oldController.removeListener(_videoListener);
       await oldController.pause();
       await oldController.dispose();
     }
@@ -125,10 +151,12 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
     setState(() {
       isLoading = true;
       isCompleted = false;
+      _videoProgress = 0.0;
+      _hasWatchedFully = false;
       currentIndex = index;
+      _currentVideoId = reels[index].id;
+      _currentVideoTitle = reels[index].title;
     });
-
-    if (index >= reels.length) return;
 
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(reels[index].videoUrl),
@@ -138,7 +166,8 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
 
     try {
       await controller.initialize();
-      await controller.setLooping(true);
+      await controller.setLooping(false);
+      controller.addListener(_videoListener);
 
       if (!mounted) {
         await controller.dispose();
@@ -153,10 +182,36 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
         await controller.play();
       }
     } catch (e) {
+      debugPrint("Video Load Error: $e");
       if (!mounted) return;
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  void _videoListener() {
+    final controller = videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    final position = controller.value.position.inMilliseconds;
+    final duration = controller.value.duration.inMilliseconds;
+
+    if (duration > 0) {
+      final progress = (position / duration).clamp(0.0, 1.0);
+      if ((progress - _videoProgress).abs() > 0.01) {
+        setState(() {
+          _videoProgress = progress;
+        });
+      }
+    }
+
+    // Detect video end
+    if (!_hasWatchedFully && position >= duration && duration > 0) {
+      _hasWatchedFully = true;
+      if (!_watchAgainMode && _currentTier != null && _currentVideoId != null && _currentVideoTitle != null) {
+        onCompleteTask(_currentTier!, _currentVideoId!, _currentVideoTitle!);
+      }
     }
   }
 
@@ -177,46 +232,33 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
   // COMPLETE TASK & DISTRIBUTE REWARDS
   // ===========================================================================
 
-  void onCompleteTask(String activeTier) async {
+  void onCompleteTask(InvestmentTierModel tier, String videoId, String videoTitle) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    // Get rewards specs based on current tier title
-    double reward = 10.0;
-    int maxTasks = 3;
+    if (isCompleted) return;
 
-    if (activeTier == 'SV2') { reward = 12.0; maxTasks = 3; }
-    else if (activeTier == 'SV3') { reward = 20.0; maxTasks = 6; }
-    else if (activeTier == 'GV1') { reward = 30.0; maxTasks = 12; }
-    else if (activeTier == 'GV2') { reward = 40.0; maxTasks = 25; }
-    else if (activeTier == 'GV3') { reward = 85.0; maxTasks = 30; }
-    else if (activeTier == 'GO') { reward = 18.0; maxTasks = 5; }
-    else if (activeTier == 'PLUS') { reward = 36.0; maxTasks = 5; }
-    else if (activeTier == 'PRO') { reward = 54.0; maxTasks = 5; }
-    else if (activeTier == 'MAX') { reward = 84.0; maxTasks = 5; }
-    else if (activeTier == 'ULTRA') { reward = 102.0; maxTasks = 5; }
-    else if (activeTier == 'INFINITY') { reward = 204.0; maxTasks = 5; }
+    final rewardStr = tier.payPerTask.replaceAll(RegExp(r'[^0-9]'), '');
+    final reward = double.tryParse(rewardStr) ?? 0.0;
 
-    final error = await ref.read(userViewModelProvider).completeTaskReward(uid, reward, maxTasks);
+    final maxTasksStr = tier.dailyTask.replaceAll(RegExp(r'[^0-9]'), '');
+    final maxTasks = int.tryParse(maxTasksStr) ?? 3;
+
+    final error = await ref.read(userViewModelProvider).completeTaskReward(uid, reward, maxTasks, videoId, videoTitle);
 
     if (!mounted) return;
 
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
-      );
+      Alert.show(context, message: error, type: AlertType.error);
     } else {
       setState(() {
         isCompleted = true;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${tr('Task completed successfully! Received', 'လုပ်ငန်းအောင်မြင်စွာပြီးဆုံးပါပြီ။')} $reward THB',
-          ),
-          backgroundColor: Colors.green,
-        ),
+      Alert.show(
+        context, 
+        message: '${tr('Task completed successfully! Received', 'လုပ်ငန်းအောင်မြင်စွာပြီးဆုံးပါပြီ။')} $reward THB',
+        type: AlertType.success
       );
     }
   }
@@ -224,6 +266,7 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    videoController?.removeListener(_videoListener);
     videoController?.pause();
     videoController?.dispose();
     pageController.dispose();
@@ -238,57 +281,224 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
   Widget build(BuildContext context) {
     final reelsAsync = ref.watch(reelsProvider);
     final userAsync = ref.watch(userProfileProvider);
+    final tiersAsync = ref.watch(investmentTiersProvider);
 
     final userProfile = userAsync.value;
-    final activeTier = userProfile?.activeTier ?? 'Internship';
+    final activeTierTitle = userProfile?.activeTier ?? 'None';
+    final completedToday = userProfile?.tasksCompletedToday ?? 0;
+    final watchedVideoIds = userProfile?.watchedVideoIds ?? [];
+
+    if (activeTierTitle == 'None') {
+      return Scaffold(
+        backgroundColor: background,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock_outline, color: gold, size: 80),
+                const SizedBox(height: 24),
+                Text(
+                  tr('Plan Not Active', 'အစီအစဉ်မရှိသေးပါ'),
+                  style: const TextStyle(color: gold, fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  tr('Please unlock an investment plan to start watching videos and earning rewards.', 'ဗီဒီယိုများကြည့်ရှုပြီး ဆုလာဘ်များရယူရန် ကျေးဇူးပြု၍ ရင်းနှီးမြှုပ်နှံမှု အစီအစဉ်တစ်ခုကို ဖွင့်ပါ။'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 15),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: background,
       body: SafeArea(
-        child: reelsAsync.when(
-          data: (reels) {
-            if (reels.isEmpty) {
-              return Center(
-                child: Text(
-                  tr('No videos available.', 'ဗီဒီယိုများမရှိသေးပါ။'),
-                  style: const TextStyle(color: Colors.white),
-                ),
-              );
-            }
+        child: tiersAsync.when(
+          data: (tiers) {
+            final tier = tiers.firstWhere(
+              (t) => t.title == activeTierTitle,
+              orElse: () => InvestmentTierModel(
+                id: '',
+                title: activeTierTitle,
+                dailyTask: '0 Tasks',
+                payPerTask: '0 THB',
+                dailyRoi: '0 THB',
+                investmentAmount: '0 THB',
+                orderIndex: 0,
+              ),
+            );
 
-            // Fire first video load if initialized and controller is empty
-            if (videoController == null && widget.currentTab) {
-              Future.microtask(() => _loadVideo(reels, currentIndex));
-            }
+            _currentTier = tier;
 
-            return Stack(
-              children: [
-                PageView.builder(
-                  controller: pageController,
-                  scrollDirection: Axis.vertical,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: reels.length,
-                  onPageChanged: (index) => _loadVideo(reels, index),
-                  itemBuilder: (context, index) {
-                    return _buildReel(index, reels[index], activeTier);
-                  },
-                ),
-                if (currentIndex == 0)
-                  Positioned(
-                    right: 15,
-                    top: MediaQuery.of(context).size.height * 0.43,
-                    child: Column(
-                      children: [
-                        const Icon(Icons.keyboard_arrow_up, color: Colors.white70, size: 25),
-                        Text(
-                          tr('Swipe', 'ပွတ်ဆွဲပါ'),
-                          style: const TextStyle(color: Colors.white70, fontSize: 11),
-                        ),
-                        const Icon(Icons.keyboard_arrow_down, color: Colors.white70, size: 25),
-                      ],
+            final maxTasksStr = tier.dailyTask.replaceAll(RegExp(r'[^0-9]'), '');
+            final maxTasks = int.tryParse(maxTasksStr) ?? 0;
+            final remainingToday = maxTasks - completedToday;
+
+            return reelsAsync.when(
+              data: (reels) {
+                if (reels.isEmpty) {
+                  return Center(
+                    child: Text(
+                      tr('No videos available.', 'ဗီဒီယိုများမရှိသေးပါ။'),
+                      style: const TextStyle(color: Colors.white),
                     ),
-                  ),
-              ],
+                  );
+                }
+
+                // Normal Mode: Show unwatched videos within limit
+                final unwatchedReels = reels.where((r) => !watchedVideoIds.contains(r.id)).toList();
+                final availableReels = unwatchedReels.take(remainingToday > 0 ? remainingToday : 0).toList();
+
+                // Logic for "Limit Reached" or "All unique watched" screen with "Watch Again"
+                if (!_watchAgainMode) {
+                  if (remainingToday <= 0 || (unwatchedReels.isEmpty && availableReels.isEmpty)) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            remainingToday <= 0 ? Icons.check_circle_outline : Icons.history,
+                            color: gold,
+                            size: 80,
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            remainingToday <= 0 
+                              ? tr('Daily Limit Reached!', 'နေ့စဉ်ကန့်သတ်ချက် ပြည့်သွားပါပြီ။')
+                              : tr('No New Tasks Available', 'လုပ်ဆောင်ရန် တာဝန်သစ်မရှိပါ'),
+                            style: const TextStyle(color: gold, fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 40),
+                            child: Text(
+                              remainingToday <= 0 
+                                ? tr('You have completed all your tasks for today. Come back tomorrow!', 'ယနေ့အတွက် တာဝန်အားလုံး ပြီးမြောက်ပါပြီ။ မနက်ဖြန်မှ ပြန်လာခဲ့ပါ။')
+                                : tr('You have watched all unique videos in our library. Feel free to re-watch!', 'ရှိသမျှ ဗီဒီယိုများအားလုံး ကြည့်ရှုပြီးပါပြီ။ အဟောင်းများကို ပြန်လည်ကြည့်ရှုနိုင်ပါသည်။'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white70, fontSize: 16),
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _watchAgainMode = true;
+                                currentIndex = 0;
+                              });
+                              _loadVideo(reels, 0);
+                            },
+                            icon: const Icon(Icons.replay, color: Colors.black),
+                            label: Text(tr('Watch Again', 'ပြန်လည်ကြည့်ရှုမည်')),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: gold,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                }
+
+                // If in watch again mode or has tasks
+                final activeList = _watchAgainMode ? reels : availableReels;
+
+                if (videoController == null && widget.currentTab) {
+                  Future.microtask(() {
+                    _loadVideo(activeList, 0);
+                  });
+                }
+
+                return Stack(
+                  children: [
+                    PageView.builder(
+                      controller: pageController,
+                      scrollDirection: Axis.vertical,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: activeList.length,
+                      onPageChanged: (index) => _loadVideo(activeList, index),
+                      itemBuilder: (context, index) {
+                        return _buildReel(index, activeList[index], tier, completedToday, maxTasks, watchedVideoIds);
+                      },
+                    ),
+                    
+                    Positioned(
+                      top: 20,
+                      left: 20,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(color: gold.withOpacity(0.5)),
+                            ),
+                            child: Text(
+                              _watchAgainMode 
+                                ? tr('Review Mode (No Rewards)', 'ပြန်လည်ကြည့်ရှုခြင်း (ဆုကြေးမရှိ)')
+                                : "${tr('Plan', 'အစီအစဉ်')}: ${tier.title}  |  ${tr('Progress', 'တိုးတက်မှု')}: $completedToday/$maxTasks",
+                              style: const TextStyle(color: gold, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          if (_watchAgainMode)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8, left: 4),
+                              child: GestureDetector(
+                                onTap: () {
+                                   setState(() {
+                                     _watchAgainMode = false;
+                                     videoController?.pause();
+                                     videoController = null;
+                                   });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.7),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    tr('Exit Review', 'ပြန်ထွက်မည်'),
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    if (currentIndex == 0 && activeList.length > 1)
+                      Positioned(
+                        right: 15,
+                        top: MediaQuery.of(context).size.height * 0.43,
+                        child: Column(
+                          children: [
+                            const Icon(Icons.keyboard_arrow_up, color: Colors.white70, size: 25),
+                            Text(
+                              tr('Swipe', 'ပွတ်ဆွဲပါ'),
+                              style: const TextStyle(color: Colors.white70, fontSize: 11),
+                            ),
+                            const Icon(Icons.keyboard_arrow_down, color: Colors.white70, size: 25),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator(color: gold)),
+              error: (err, stack) => Center(child: Text('Error: $err')),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator(color: gold)),
@@ -302,8 +512,10 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
   // SINGLE REEL WIDGET
   // ===========================================================================
 
-  Widget _buildReel(int index, dynamic reel, String activeTier) {
+  Widget _buildReel(int index, ReelModel reel, InvestmentTierModel tier, int completedToday, int maxTasks, List<String> watchedIds) {
     final controller = videoController;
+    final showingCompletion = (isCompleted && index == currentIndex);
+    final isAlreadyEarned = watchedIds.contains(reel.id);
 
     return Stack(
       fit: StackFit.expand,
@@ -377,11 +589,15 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
                   color: Colors.black.withOpacity(0.40),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.task_alt, color: gold, size: 28),
+                child: Icon(
+                  isAlreadyEarned ? Icons.check_circle : Icons.task_alt,
+                  color: isAlreadyEarned ? Colors.green : gold,
+                  size: 28,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
-                '${index + 1}',
+                _watchAgainMode ? '#' : '${completedToday + index + 1}',
                 style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ],
@@ -401,29 +617,52 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
               ),
               const SizedBox(height: 8),
               Text(
-                tr(
-                  'Watch this video to complete your daily task.',
-                  'နေ့စဉ်လုပ်ငန်းပြီးမြောက်ရန် ဤဗီဒီယိုကို ကြည့်ပါ။',
-                ),
+                _watchAgainMode 
+                  ? tr('You are watching this in review mode.', 'ဤဗီဒီယိုကို ပြန်လည်ကြည့်ရှုနေခြင်းဖြစ်သည်။')
+                  : tr('Watch this video fully to complete your daily task.', 'နေ့စဉ်လုပ်ငန်းပြီးမြောက်ရန် ဤဗီဒီယိုကို အပြည့်ကြည့်ပါ။'),
                 style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 18),
-              SizedBox(
+
+              // Animated Task Completion Button with Progress Loader
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 500),
                 width: double.infinity,
                 height: 52,
-                child: ElevatedButton(
-                  onPressed: isCompleted ? null : () => onCompleteTask(activeTier),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: gold,
-                    disabledBackgroundColor: Colors.grey.shade700,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
-                  ),
-                  child: Text(
-                    isCompleted
-                        ? tr('Completed', 'ပြီးမြောက်ပြီး')
-                        : tr('Complete Task', 'လုပ်ငန်းပြီးမြောက်ရန်'),
-                    style: const TextStyle(color: Colors.black, fontSize: 17, fontWeight: FontWeight.w800),
+                decoration: BoxDecoration(
+                  color: (showingCompletion || isAlreadyEarned) ? Colors.green : (_watchAgainMode ? Colors.blueGrey : gold),
+                  borderRadius: BorderRadius.circular(17),
+                  boxShadow: (showingCompletion || isAlreadyEarned) ? [BoxShadow(color: Colors.green.withOpacity(0.5), blurRadius: 10, spreadRadius: 2)] : null,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(17),
+                  child: Stack(
+                    children: [
+                      // Progress Background Loader
+                      if (!showingCompletion && !isAlreadyEarned && index == currentIndex)
+                        Positioned.fill(
+                          child: LinearProgressIndicator(
+                            value: _videoProgress,
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.black.withOpacity(0.15)),
+                          ),
+                        ),
+
+                      Center(
+                        child: Text(
+                          (showingCompletion || isAlreadyEarned)
+                              ? tr('Completed', 'ပြီးမြောက်ပြီး')
+                              : _watchAgainMode 
+                                ? tr('Watching...', 'ကြည့်ရှုနေသည်...')
+                                : tr('Complete Task', 'လုပ်ငန်းပြီးမြောက်ရန်'),
+                          style: TextStyle(
+                            color: (showingCompletion || isAlreadyEarned) ? Colors.white : Colors.black,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

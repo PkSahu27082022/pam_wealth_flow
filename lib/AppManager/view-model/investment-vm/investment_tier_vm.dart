@@ -11,13 +11,16 @@ class InvestmentTiersViewModel extends AsyncNotifier<List<InvestmentTierModel>> 
 
   @override
   Future<List<InvestmentTierModel>> build() async {
-    // This will fetch the investment plans once and cache them in-memory via Riverpod.
-    // Future calls to ref.watch(investmentTiersProvider) will return the cached state instantly without any Firebase Firestore queries.
-    return _service.getInvestmentTiers();
+    final list = await _service.getInvestmentTiers(forceRefresh: false);
+    if (list.isEmpty) {
+      await _service.seedInitialTiers();
+      return _service.getInvestmentTiers(forceRefresh: true);
+    }
+    return list;
   }
 
   Future<void> refreshTiers() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _service.getInvestmentTiers());
+    state = await AsyncValue.guard(() => _service.getInvestmentTiers(forceRefresh: true));
   }
 }

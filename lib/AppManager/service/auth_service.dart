@@ -134,7 +134,7 @@ class AuthService {
       String uniqueMyCode = _generateReferralCode(username);
       String currentLang = await LocalStorageService.getLanguage() ?? 'en';
 
-      // 4. Save User Profile in Firestore
+      // 4. Save User Profile in Firestore - Start with 'None' plan
       UserModel newUser = UserModel(
         uid: uid,
         username: username.trim(),
@@ -143,9 +143,11 @@ class AuthService {
         referredBy: validReferralCode,
         language: currentLang,
         createdAt: DateTime.now(),
-        activeTier: 'Internship',
+        activeTier: 'None',
         balance: 0.0,
+        totalEarned: 0.0,
         tasksCompletedToday: 0,
+        watchedVideoIds: [],
       );
 
       await _firestore.collection('users').doc(uid).set(newUser.toMap());

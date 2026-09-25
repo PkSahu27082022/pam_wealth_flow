@@ -3,12 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../view-model/investment-vm/investment_tier_vm.dart';
 import '../../view-model/account-vm/user_vm.dart';
+import '../../service/snackbar_service.dart';
 
-
-class InvestmentTiersPage extends ConsumerWidget {
+class InvestmentTiersPage extends ConsumerStatefulWidget {
   final String language;
 
   const InvestmentTiersPage({super.key, required this.language});
+
+  @override
+  ConsumerState<InvestmentTiersPage> createState() => _InvestmentTiersPageState();
+}
+
+class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
+  String? _unlockingTierTitle;
 
   // ===========================================================================
   // COLORS
@@ -25,28 +32,56 @@ class InvestmentTiersPage extends ConsumerWidget {
   // ===========================================================================
 
   String tr(String english, String burmese) {
-    return language == 'my' ? burmese : english;
+    return widget.language == 'my' ? burmese : english;
   }
 
-  // ===========================================================================
-  // FALLBACK HARDCODED TIERS
-  // ===========================================================================
-  List<Map<String, String>> _fallbackTiers() {
-    return [
-      {'title': 'Internship', 'dailyTask': '3 Tasks', 'payPerTask': '10 THB', 'dailyRoi': '30 THB', 'investmentAmount': '0 THB'},
-      {'title': 'SV1', 'dailyTask': '3 Tasks', 'payPerTask': '10 THB', 'dailyRoi': '30 THB', 'investmentAmount': '500 THB'},
-      {'title': 'SV2', 'dailyTask': '3 Tasks', 'payPerTask': '12 THB', 'dailyRoi': '36 THB', 'investmentAmount': '1200 THB'},
-      {'title': 'SV3', 'dailyTask': '6 Tasks', 'payPerTask': '20 THB', 'dailyRoi': '120 THB', 'investmentAmount': '3900 THB'},
-      {'title': 'GV1', 'dailyTask': '12 Tasks', 'payPerTask': '30 THB', 'dailyRoi': '360 THB', 'investmentAmount': '11000 THB'},
-      {'title': 'GV2', 'dailyTask': '25 Tasks', 'payPerTask': '40 THB', 'dailyRoi': '1000 THB', 'investmentAmount': '28000 THB'},
-      {'title': 'GV3', 'dailyTask': '30 Tasks', 'payPerTask': '85 THB', 'dailyRoi': '2550 THB', 'investmentAmount': '70000 THB'},
-      {'title': 'GO', 'dailyTask': '5 Videos', 'payPerTask': '18 THB', 'dailyRoi': '90 THB', 'investmentAmount': '3,000 THB'},
-      {'title': 'PLUS', 'dailyTask': '5 Videos', 'payPerTask': '36 THB', 'dailyRoi': '180 THB', 'investmentAmount': '6,000 THB'},
-      {'title': 'PRO', 'dailyTask': '5 Videos', 'payPerTask': '54 THB', 'dailyRoi': '270 THB', 'investmentAmount': '9,000 THB'},
-      {'title': 'MAX', 'dailyTask': '5 Videos', 'payPerTask': '84 THB', 'dailyRoi': '420 THB', 'investmentAmount': '12,000 THB'},
-      {'title': 'ULTRA', 'dailyTask': '5 Videos', 'payPerTask': '102 THB', 'dailyRoi': '510 THB', 'investmentAmount': '15,000 THB'},
-      {'title': 'INFINITY', 'dailyTask': '5 Videos', 'payPerTask': '204 THB', 'dailyRoi': '1,020 THB', 'investmentAmount': '30,000 THB'},
-    ];
+  void _showSuccessDialog(String title) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '',
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, anim1, anim2) => const SizedBox(),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return Transform.scale(
+          scale: anim1.value,
+          child: Opacity(
+            opacity: anim1.value,
+            child: AlertDialog(
+              backgroundColor: cardColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.green, size: 80),
+                  const SizedBox(height: 20),
+                  Text(
+                    tr('Plan Unlocked!', 'အစီအစဉ်ကို ဖွင့်လှစ်ပြီးပါပြီ။'),
+                    style: const TextStyle(color: gold, fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '${tr('You have successfully activated', 'သင်သည် အောင်မြင်စွာ အသက်သွင်းပြီးပါပြီ')} $title',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: white, fontSize: 14),
+                  ),
+                  const SizedBox(height: 25),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: gold,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                    ),
+                    child: const Text('OK', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // ===========================================================================
@@ -54,14 +89,13 @@ class InvestmentTiersPage extends ConsumerWidget {
   // ===========================================================================
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final tiersAsync = ref.watch(investmentTiersProvider);
     final userAsync = ref.watch(userProfileProvider);
 
     return Container(
       width: double.infinity,
       height: double.infinity,
-
       decoration: const BoxDecoration(
         gradient: RadialGradient(
           center: Alignment(0, -0.15),
@@ -69,18 +103,13 @@ class InvestmentTiersPage extends ConsumerWidget {
           colors: [Color(0xFF15191F), Color(0xFF0D1117), Color(0xFF090D13)],
         ),
       ),
-
       child: SafeArea(
         bottom: false,
-
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-
           padding: const EdgeInsets.fromLTRB(28, 25, 28, 30),
-
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-
             children: [
               // ===============================================================
               // HEADER
@@ -91,7 +120,6 @@ class InvestmentTiersPage extends ConsumerWidget {
                     child: Center(
                       child: Text(
                         tr('Investment Tiers', 'ရင်းနှီးမြှုပ်နှံမှုအဆင့်များ'),
-
                         style: const TextStyle(
                           color: gold,
                           fontSize: 28,
@@ -110,11 +138,11 @@ class InvestmentTiersPage extends ConsumerWidget {
               // ===============================================================
               userAsync.when(
                 data: (user) => _activePortfolioCard(
-                  user?.activeTier ?? 'Internship',
+                  user?.activeTier ?? 'None',
                   user?.balance ?? 0.0,
                 ),
                 loading: () => _activePortfolioCard('Loading...', 0.0),
-                error: (e, s) => _activePortfolioCard('Internship', 0.0),
+                error: (e, s) => _activePortfolioCard('None', 0.0),
               ),
 
               const SizedBox(height: 20),
@@ -124,11 +152,19 @@ class InvestmentTiersPage extends ConsumerWidget {
               // ===============================================================
               tiersAsync.when(
                 data: (tiers) {
-                  if (tiers.isEmpty) {
-                    return _buildFallbackList(context, ref);
+                  // Filter out GV related plans as requested
+                  final filteredTiers = tiers.where((t) => !t.title.toUpperCase().contains('GV')).toList();
+
+                  if (filteredTiers.isEmpty) {
+                    return Center(
+                      child: Text(
+                        tr('No investment plans available.', 'ရင်းနှီးမြှုပ်နှံမှု အစီအစဉ်များ မရှိသေးပါ။'),
+                        style: const TextStyle(color: white),
+                      ),
+                    );
                   }
                   return Column(
-                    children: tiers.map((tier) {
+                    children: filteredTiers.map((tier) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 28),
                         child: _tierCard(
@@ -150,32 +186,17 @@ class InvestmentTiersPage extends ConsumerWidget {
                     child: CircularProgressIndicator(color: gold),
                   ),
                 ),
-                error: (err, stack) => _buildFallbackList(context, ref),
+                error: (err, stack) => Center(
+                  child: Text(
+                    tr('Error loading plans', 'အစီအစဉ်များ ရှာမတွေ့ပါ'),
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildFallbackList(BuildContext context, WidgetRef ref) {
-    final fallbacks = _fallbackTiers();
-    return Column(
-      children: fallbacks.map((tier) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 28),
-          child: _tierCard(
-            context: context,
-            ref: ref,
-            title: tier['title']!,
-            dailyCapacity: tier['dailyTask']!,
-            orderRate: tier['payPerTask']!,
-            potentialROI: tier['dailyRoi']!,
-            capitalRequirement: tier['investmentAmount']!,
-          ),
-        );
-      }).toList(),
     );
   }
 
@@ -186,41 +207,30 @@ class InvestmentTiersPage extends ConsumerWidget {
   Widget _activePortfolioCard(String activeTier, double balance) {
     return Container(
       width: double.infinity,
-
       padding: const EdgeInsets.fromLTRB(17, 16, 15, 15),
-
       decoration: BoxDecoration(
         color: cardColor,
-
         borderRadius: BorderRadius.circular(20),
-
         border: Border.all(color: borderColor, width: 1.3),
       ),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-
         children: [
           Text(
             '${tr('Active Portfolio', 'လက်ရှိ Portfolio')}: $activeTier',
-
             style: const TextStyle(
               color: gold,
               fontSize: 22,
               fontWeight: FontWeight.w800,
             ),
           ),
-
           const SizedBox(height: 14),
-
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
-
             children: [
               Expanded(
                 child: Text(
                   '${tr('Balance', 'လက်ကျန်ငွေ')}: ${balance.toStringAsFixed(2)} THB',
-
                   style: const TextStyle(
                     color: white,
                     fontSize: 16,
@@ -228,28 +238,21 @@ class InvestmentTiersPage extends ConsumerWidget {
                   ),
                 ),
               ),
-
               const SizedBox(width: 8),
-
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
-
                 children: [
                   Text(
                     tr('Expiry Date', 'သက်တမ်းကုန်ဆုံးရက်'),
-
                     style: const TextStyle(
                       color: white,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-
                   const SizedBox(height: 3),
-
                   const Text(
                     '03-09-2029',
-
                     style: TextStyle(
                       color: white,
                       fontSize: 14,
@@ -280,29 +283,24 @@ class InvestmentTiersPage extends ConsumerWidget {
   }) {
     final userProfile = ref.read(userProfileProvider).value;
     final isCurrent = userProfile?.activeTier == title;
+    final isUnlocking = _unlockingTierTitle == title;
 
     return Container(
       width: double.infinity,
-
       padding: const EdgeInsets.fromLTRB(17, 14, 17, 15),
-
       decoration: BoxDecoration(
         color: cardColor,
-
         borderRadius: BorderRadius.circular(20),
         border: isCurrent ? Border.all(color: gold, width: 1.5) : null,
       ),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 title,
-
                 style: const TextStyle(
                   color: gold,
                   fontSize: 20,
@@ -323,84 +321,58 @@ class InvestmentTiersPage extends ConsumerWidget {
                 ),
             ],
           ),
-
           const SizedBox(height: 12),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow(
-                    tr('Daily Task', 'နေ့စဉ်တာဝန်'),
-                    dailyCapacity,
-                  ),
-
+                  _infoRow(tr('Daily Task', 'နေ့စဉ်တာဝန်'), dailyCapacity),
                   const SizedBox(height: 5),
-
                   _infoRow(tr('Pay Per Task', 'တာဝန်တစ်ခုနှုန်း'), orderRate),
-
                   const SizedBox(height: 5),
-
-                  _infoRow(
-                    tr('Daily ROI', 'နေ့စဉ်ရရှိငွေ'),
-                    potentialROI,
-                  ),
-
+                  _infoRow(tr('Daily ROI', 'နေ့စဉ်ရရှိငွေ'), potentialROI),
                   const SizedBox(height: 5),
-
-                  _infoRow(
-                    tr('Investment Amount', 'ရင်းနှီးမြှုပ်နှံငွေ'),
-                    capitalRequirement,
-                  ),
+                  _infoRow(tr('Investment Amount', 'ရင်းနှီးမြှုပ်နှံငွေ'), capitalRequirement),
                 ],
               ),
               if (!isCurrent)
-                OutlinedButton(
-                  onPressed: () async {
-                    final uid = FirebaseAuth.instance.currentUser?.uid;
-                    if (uid == null) return;
+                SizedBox(
+                  width: 100,
+                  child: OutlinedButton(
+                    onPressed: isUnlocking ? null : () async {
+                      final uid = FirebaseAuth.instance.currentUser?.uid;
+                      if (uid == null) return;
 
-                    // Parse numerical value out of requirement string (e.g. "3,000 THB" -> 3000.0)
-                    final costStr = capitalRequirement.replaceAll(RegExp(r'[^0-9]'), '');
-                    final cost = double.tryParse(costStr) ?? 0.0;
+                      setState(() => _unlockingTierTitle = title);
 
-                    final error = await ref.read(userViewModelProvider).unlockTier(uid, title, cost);
-                    if (context.mounted) {
-                      if (error != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(error), backgroundColor: Colors.red),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(tr('Plan Unlocked Successfully!', 'အစီအစဉ်ကို အောင်မြင်စွာ ဖွင့်လှစ်ပြီးပါပြီ။')),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
+                      // Parse numerical value out of requirement string
+                      final costStr = capitalRequirement.replaceAll(RegExp(r'[^0-9]'), '');
+                      final cost = double.tryParse(costStr) ?? 0.0;
+
+                      final error = await ref.read(userViewModelProvider).unlockTier(uid, title, cost);
+
+                      if (mounted) {
+                        setState(() => _unlockingTierTitle = null);
+                        if (error != null) {
+                          Alert.show(context, message: error, type: AlertType.error);
+                        } else {
+                          _showSuccessDialog(title);
+                        }
                       }
-                    }
-                  },
-
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFF292823),
-
-                    side: const BorderSide(color: gold, width: 1.7),
-
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
+                    },
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: isUnlocking ? Colors.grey.shade900 : const Color(0xFF292823),
+                      side: BorderSide(color: isUnlocking ? Colors.grey : gold, width: 1.7),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
                     ),
-                  ),
-
-                  child: Text(
-                    tr('Unlock', 'ဖွင့်ရန်'),
-
-                    style: const TextStyle(
-                      color: gold,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    child: isUnlocking
+                        ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: gold))
+                        : Text(
+                            tr('Unlock', 'ဖွင့်ရန်'),
+                            style: const TextStyle(color: gold, fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
                   ),
                 ),
             ],
@@ -420,22 +392,11 @@ class InvestmentTiersPage extends ConsumerWidget {
         children: [
           TextSpan(
             text: '$title: ',
-
-            style: const TextStyle(
-              color: white,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
+            style: const TextStyle(color: white, fontSize: 13, fontWeight: FontWeight.w400),
           ),
-
           TextSpan(
             text: value,
-
-            style: const TextStyle(
-              color: white,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(color: white, fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ],
       ),

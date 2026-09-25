@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../view-model/account-vm/user_vm.dart';
 
-class ProfitAnalyticsPage extends StatelessWidget {
+class ProfitAnalyticsPage extends ConsumerWidget {
   final String language;
 
   const ProfitAnalyticsPage({
@@ -28,11 +30,13 @@ class ProfitAnalyticsPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profitAsync = ref.watch(profitStatsProvider);
+    final taskProgressAsync = ref.watch(taskProgressProvider);
+
     return Container(
       width: double.infinity,
       height: double.infinity,
-
       decoration: const BoxDecoration(
         gradient: RadialGradient(
           center: Alignment(0, -0.15),
@@ -44,172 +48,108 @@ class ProfitAnalyticsPage extends StatelessWidget {
           ],
         ),
       ),
-
       child: SafeArea(
         bottom: false,
+        child: profitAsync.when(
+          data: (stats) {
+            return taskProgressAsync.when(
+              data: (progress) {
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(28, 25, 28, 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // HEADER
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                tr('Profit Analytics', 'အမြတ်ခွဲခြမ်းစိတ်ဖြာမှု'),
+                                style: const TextStyle(
+                                  color: gold,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 34),
+                        ],
+                      ),
+                      const SizedBox(height: 30),
 
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-
-          padding: const EdgeInsets.fromLTRB(
-            28,
-            25,
-            28,
-            30,
-          ),
-
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-
-            children: [
-              // ===============================================================
-              // HEADER
-              // ===============================================================
-
-              Row(
-                children: [
-
-
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        tr(
-                          'Profit Analytics',
-                          'အမြတ်ခွဲခြမ်းစိတ်ဖြာမှု',
-                        ),
-
+                      // EARNINGS SUMMARY
+                      Text(
+                        tr('Earnings Summary', 'ဝင်ငွေအကျဉ်းချုပ်'),
                         style: const TextStyle(
                           color: gold,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+
+                      // TOTAL EARNINGS CARD
+                      _buildEarningsCard(stats),
+
+                      const SizedBox(height: 10),
+
+                      // MONTHLY DETAILS CARD
+                      _buildDetailsCard(stats),
+
+                      const SizedBox(height: 15),
+
+                      // TASK STATISTICS
+                      Text(
+                        tr('Task Statistics', 'လုပ်ငန်းစာရင်းအင်း'),
+                        style: const TextStyle(
+                          color: gold,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // TASK STATISTICS CARD
+                      _buildTaskStatisticsCard(
+                        progress['completed'] ?? 0,
+                        progress['remaining'] ?? 0,
+                      ),
+                    ],
                   ),
-
-                  // Keeps title centered
-                  const SizedBox(width: 34),
-                ],
-              ),
-
-              const SizedBox(height: 30),
-
-              // ===============================================================
-              // EARNINGS SUMMARY
-              // ===============================================================
-
-              Text(
-                tr(
-                  'Earnings Summary',
-                  'ဝင်ငွေအကျဉ်းချုပ်',
-                ),
-
-                style: const TextStyle(
-                  color: gold,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // ===============================================================
-              // TOTAL EARNINGS CARD
-              // ===============================================================
-
-              _buildEarningsCard(),
-
-              const SizedBox(height: 10),
-
-              // ===============================================================
-              // MONTHLY DETAILS CARD
-              // ===============================================================
-
-              _buildDetailsCard(),
-
-              const SizedBox(height: 15),
-
-              // ===============================================================
-              // TASK STATISTICS
-              // ===============================================================
-
-              Text(
-                tr(
-                  'Task Statistics',
-                  'လုပ်ငန်းစာရင်းအင်း',
-                ),
-
-                style: const TextStyle(
-                  color: gold,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // ===============================================================
-              // TASK STATISTICS CARD
-              // ===============================================================
-
-              _buildTaskStatisticsCard(),
-            ],
-          ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator(color: gold)),
+              error: (e, s) => Center(child: Text(e.toString())),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: gold)),
+          error: (e, s) => Center(child: Text(e.toString())),
         ),
       ),
     );
   }
 
-  // ===========================================================================
-  // EARNINGS CARD
-  // ===========================================================================
-
-  Widget _buildEarningsCard() {
+  Widget _buildEarningsCard(Map<String, double> stats) {
     return Container(
       width: double.infinity,
-
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        19,
-        16,
-        15,
-      ),
-
+      padding: const EdgeInsets.fromLTRB(16, 19, 16, 15),
       decoration: BoxDecoration(
         color: cardColor.withOpacity(0.95),
-
         borderRadius: BorderRadius.circular(25),
-
-        border: Border.all(
-          color: borderColor,
-          width: 1.3,
-        ),
+        border: Border.all(color: borderColor, width: 1.3),
       ),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-
         children: [
-          // ===============================================================
-          // TOTAL EARNINGS TITLE
-          // ===============================================================
-
           Row(
             children: [
-              const Icon(
-                Icons.trending_up,
-                color: green,
-                size: 18,
-              ),
-
+              const Icon(Icons.trending_up, color: green, size: 18),
               const SizedBox(width: 8),
-
               Text(
-                tr(
-                  'Total Earnings',
-                  'စုစုပေါင်းဝင်ငွေ',
-                ),
-
+                tr('Total Earnings', 'စုစုပေါင်းဝင်ငွေ'),
                 style: const TextStyle(
                   color: white,
                   fontSize: 14,
@@ -218,71 +158,35 @@ class ProfitAnalyticsPage extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 8),
-
-          // ===============================================================
-          // TOTAL AMOUNT
-          // ===============================================================
-
           FittedBox(
             alignment: Alignment.centerLeft,
-
-            child: const Text(
-              '2,878.82 THB',
-
-              style: TextStyle(
+            child: Text(
+              '${stats['total']?.toStringAsFixed(2)} THB',
+              style: const TextStyle(
                 color: gold,
                 fontSize: 30,
                 fontWeight: FontWeight.w800,
               ),
             ),
           ),
-
           const SizedBox(height: 8),
-
-          // ===============================================================
-          // DIVIDER
-          // ===============================================================
-
-          const Divider(
-            color: Color(0xFF64666C),
-            thickness: 1.3,
-          ),
-
+          const Divider(color: Color(0xFF64666C), thickness: 1.3),
           const SizedBox(height: 8),
-
-          // ===============================================================
-          // DAY / WEEK VALUES
-          // ===============================================================
-
           Row(
-            mainAxisAlignment:
-            MainAxisAlignment.spaceBetween,
-
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _earningItem(
-                title: tr(
-                  'Yesterday',
-                  'မနေ့က',
-                ),
-                value: '360.00',
+                title: tr('Yesterday', 'မနေ့က'),
+                value: stats['yesterday']?.toStringAsFixed(2) ?? '0.00',
               ),
-
               _earningItem(
-                title: tr(
-                  'Today',
-                  'ဒီနေ့',
-                ),
-                value: '0.00',
+                title: tr('Today', 'ဒီနေ့'),
+                value: stats['today']?.toStringAsFixed(2) ?? '0.00',
               ),
-
               _earningItem(
-                title: tr(
-                  'This Week',
-                  'ဒီအပတ်',
-                ),
-                value: '720.00',
+                title: tr('This Week', 'ဒီအပတ်'),
+                value: stats['thisWeek']?.toStringAsFixed(2) ?? '0.00',
               ),
             ],
           ),
@@ -291,33 +195,21 @@ class ProfitAnalyticsPage extends StatelessWidget {
     );
   }
 
-  // ===========================================================================
-  // EARNING ITEM
-  // ===========================================================================
-
-  Widget _earningItem({
-    required String title,
-    required String value,
-  }) {
+  Widget _earningItem({required String title, required String value}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-
       children: [
         Text(
           title,
-
           style: const TextStyle(
             color: white,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
-
         const SizedBox(height: 6),
-
         Text(
           value,
-
           style: const TextStyle(
             color: white,
             fontSize: 14,
@@ -328,91 +220,36 @@ class ProfitAnalyticsPage extends StatelessWidget {
     );
   }
 
-  // ===========================================================================
-  // DETAILS CARD
-  // ===========================================================================
-
-  Widget _buildDetailsCard() {
+  Widget _buildDetailsCard(Map<String, double> stats) {
     return Container(
       width: double.infinity,
-
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 17,
-      ),
-
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
       decoration: BoxDecoration(
         color: cardColor.withOpacity(0.95),
-
         borderRadius: BorderRadius.circular(25),
-
-        border: Border.all(
-          color: borderColor,
-          width: 1.3,
-        ),
+        border: Border.all(color: borderColor, width: 1.3),
       ),
-
       child: Column(
         children: [
-          _detailRow(
-            tr(
-              'This Month',
-              'ယခုလ',
-            ),
-            '2,878.82 THB',
-          ),
-
+          _detailRow(tr('This Month', 'ယခုလ'), '${stats['thisMonth']?.toStringAsFixed(2)} THB'),
           const SizedBox(height: 10),
-
-          _detailRow(
-            tr(
-              'Offer Earning',
-              'ကမ်းလှမ်းမှုဝင်ငွေ',
-            ),
-            '10,000.00 THB',
-          ),
-
+          _detailRow(tr('Offer Earning', 'ကမ်းလှမ်းမှုဝင်ငွေ'), '0.00 THB'),
           const SizedBox(height: 10),
-
-          _detailRow(
-            tr(
-              'Referral Rewards',
-              'ရည်ညွှန်းဆုကြေး',
-            ),
-            '1,000.00 THB',
-          ),
-
+          _detailRow(tr('Referral Rewards', 'ရည်ညွှန်းဆုကြေး'), '${stats['referralRewards']?.toStringAsFixed(2)} THB'),
           const SizedBox(height: 10),
-
-          _detailRow(
-            tr(
-              'Task Rewards',
-              'လုပ်ငန်းဆုကြေး',
-            ),
-            '0.00 THB',
-          ),
+          _detailRow(tr('Task Rewards', 'လုပ်ငန်းဆုကြေး'), '${stats['taskRewards']?.toStringAsFixed(2)} THB'),
         ],
       ),
     );
   }
 
-  // ===========================================================================
-  // DETAIL ROW
-  // ===========================================================================
-
-  Widget _detailRow(
-      String title,
-      String value,
-      ) {
+  Widget _detailRow(String title, String value) {
     return Row(
-      mainAxisAlignment:
-      MainAxisAlignment.spaceBetween,
-
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
           child: Text(
             title,
-
             style: const TextStyle(
               color: white,
               fontSize: 14,
@@ -420,14 +257,10 @@ class ProfitAnalyticsPage extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(width: 15),
-
         Text(
           value,
-
           textAlign: TextAlign.right,
-
           style: const TextStyle(
             color: white,
             fontSize: 14,
@@ -438,64 +271,34 @@ class ProfitAnalyticsPage extends StatelessWidget {
     );
   }
 
-  // ===========================================================================
-  // TASK STATISTICS CARD
-  // ===========================================================================
-
-  Widget _buildTaskStatisticsCard() {
+  Widget _buildTaskStatisticsCard(int completed, int remaining) {
     return Container(
       width: double.infinity,
-
       height: 80,
-
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 10,
-      ),
-
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: cardColor.withOpacity(0.95),
-
         borderRadius: BorderRadius.circular(25),
-
-        border: Border.all(
-          color: borderColor,
-          width: 1.3,
-        ),
+        border: Border.all(color: borderColor, width: 1.3),
       ),
-
       child: Row(
         children: [
-          // =============================================================
-          // COMPLETED
-          // =============================================================
-
           Expanded(
             child: Column(
-              mainAxisAlignment:
-              MainAxisAlignment.center,
-
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  '0',
-
-                  style: TextStyle(
+                Text(
+                  '$completed',
+                  style: const TextStyle(
                     color: white,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(height: 3),
-
                 Text(
-                  tr(
-                    'Completed Today',
-                    'ယနေ့ပြီးစီးမှု',
-                  ),
-
+                  tr('Completed Today', 'ယနေ့ပြီးစီးမှု'),
                   textAlign: TextAlign.center,
-
                   style: const TextStyle(
                     color: white,
                     fontSize: 12,
@@ -505,48 +308,27 @@ class ProfitAnalyticsPage extends StatelessWidget {
               ],
             ),
           ),
-
-          // =============================================================
-          // VERTICAL DIVIDER
-          // =============================================================
-
           Container(
             width: 1.5,
             height: 40,
-
             color: const Color(0xFF64666C),
           ),
-
-          // =============================================================
-          // REMAINING
-          // =============================================================
-
           Expanded(
             child: Column(
-              mainAxisAlignment:
-              MainAxisAlignment.center,
-
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  '12',
-
-                  style: TextStyle(
+                Text(
+                  '$remaining',
+                  style: const TextStyle(
                     color: white,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(height: 3),
-
                 Text(
-                  tr(
-                    'Remaining Today',
-                    'ယနေ့ကျန်ရှိမှု',
-                  ),
-
+                  tr('Remaining Today', 'ယနေ့ကျန်ရှိမှု'),
                   textAlign: TextAlign.center,
-
                   style: const TextStyle(
                     color: white,
                     fontSize: 12,

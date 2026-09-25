@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.pam.wealth.flow",
+      "sha256_cert_fingerprints": [
+        "70:57:4F:DA:15:39:8A:36:E2:89:4E:B4:DD:13:86:18:DE:6F:2B:B0:69:2A:1A:80:22:E8:FA:E6:75:D3:49:19"
+      ]
+    }
+  }
+]

@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pam_wealth_flow/AppManager/view/account/language_view.dart';
 import 'package:pam_wealth_flow/AppManager/service/auth_service.dart';
 import 'package:flutter/material.dart';
@@ -9,28 +10,26 @@ import '../account/account_view.dart';
 import '../chat/chat_view.dart';
 import '../home/home_view.dart';
 import '../investment/investment_tier_view.dart';
+import '../../view-model/account-vm/user_vm.dart';
+import '../../view-model/investment-vm/investment_tier_vm.dart';
+import '../../view-model/task-vm/reel_vm.dart';
 
-class WealthCenterPage extends StatefulWidget {
+class WealthCenterPage extends ConsumerStatefulWidget {
   final String language;
 
   const WealthCenterPage({super.key, required this.language});
 
   @override
-  State<WealthCenterPage> createState() => _WealthCenterPageState();
+  ConsumerState<WealthCenterPage> createState() => _WealthCenterPageState();
 }
 
-class _WealthCenterPageState extends State<WealthCenterPage> {
+class _WealthCenterPageState extends ConsumerState<WealthCenterPage> {
   // ===========================================================================
   // COLORS
   // ===========================================================================
 
-  static const Color gold = Color(0xFFDDB83A);
   static const Color background = Color(0xFF090D13);
-  static const Color cardColor = Color(0xFF171920);
-  static const Color borderColor = Color(0xFF50525A);
-  static const Color white = Color(0xFFF2F2F3);
-  static const Color green = Color(0xFF45C85A);
-  static const Color red = Color(0xFFE7797F);
+  static const Color gold = Color(0xFFDDB83A);
 
   // ===========================================================================
   // TRANSLATION
@@ -43,7 +42,8 @@ class _WealthCenterPageState extends State<WealthCenterPage> {
   // ===========================================================================
   // BUILD
   // ===========================================================================
-  int _selectedIndex = 5;
+  int _selectedIndex = 0;
+
   List<Widget> get _pages => [
     // 0 - HOME
     HomePage(language: widget.language),
@@ -120,6 +120,16 @@ class _WealthCenterPageState extends State<WealthCenterPage> {
 
   void _logout() async {
     await AuthService().logout();
+
+    // Invalidate all providers to clear in-memory cache for the next user
+    ref.invalidate(userProfileProvider);
+    ref.invalidate(userTransactionsProvider);
+    ref.invalidate(referralTransactionsProvider);
+    ref.invalidate(profitStatsProvider);
+    ref.invalidate(teamListProvider);
+    ref.invalidate(investmentTiersProvider);
+    ref.invalidate(reelsProvider);
+
     if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
@@ -135,70 +145,6 @@ class _WealthCenterPageState extends State<WealthCenterPage> {
     setState(() {
       _selectedIndex = index;
     });
-  }
-}
-
-// ===========================================================================
-// MENU ITEM
-// ===========================================================================
-
-class _MenuItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  const _MenuItem({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  static const Color gold = Color(0xFFDDB83A);
-  static const Color borderColor = Color(0xFF50525A);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-
-      child: Column(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-
-            decoration: BoxDecoration(
-              color: const Color(0xFF151920),
-
-              borderRadius: BorderRadius.circular(20),
-
-              border: Border.all(color: borderColor, width: 1.3),
-            ),
-
-            child: Center(child: Icon(icon, color: gold, size: 25)),
-          ),
-
-          const SizedBox(height: 15),
-
-          Text(
-            title,
-
-            textAlign: TextAlign.center,
-
-            maxLines: 2,
-
-            overflow: TextOverflow.ellipsis,
-
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

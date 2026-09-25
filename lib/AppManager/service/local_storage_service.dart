@@ -6,6 +6,7 @@ class LocalStorageService {
   static const String _userEmailKey = 'userEmail';
   static const String _usernameKey = 'username';
   static const String _languageKey = 'language';
+  static const String _investmentCacheKey = 'cached_investment_tiers';
 
   static Future<void> saveUserLoginStatus(bool isLoggedIn, String uid, String email, String username) async {
     final prefs = await SharedPreferences.getInstance();
@@ -37,10 +38,15 @@ class LocalStorageService {
 
   static Future<void> clearUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_isLoggedInKey);
-    await prefs.remove(_userUidKey);
-    await prefs.remove(_userEmailKey);
-    await prefs.remove(_usernameKey);
-    // Note: We might want to keep the language preference even after logout
+    final lang = prefs.getString(_languageKey);
+    await prefs.clear(); // Complete wipe to handle "new user" fresh state requirement
+    if (lang != null) {
+      await prefs.setString(_languageKey, lang); // Preserve language preference
+    }
+  }
+
+  static Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
   }
 }
