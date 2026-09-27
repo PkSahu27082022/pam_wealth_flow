@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pam_wealth_flow/AppManager/view/account/language_view.dart';
 import 'package:pam_wealth_flow/AppManager/view/transaction/transaction_view.dart';
+import '../../localization/app_language.dart';
 import '../../view-model/account-vm/user_vm.dart';
 import '../../service/snackbar_service.dart';
 
@@ -38,21 +39,10 @@ class AccountView extends ConsumerWidget {
   static const Color green = Color(0xFF4CAF50);
   static const Color red = Color(0xFFE57373);
 
-  // ===========================================================================
-  // LANGUAGE
-  // ===========================================================================
-
-  String tr(String english, String burmese) {
-    return language == 'my' ? burmese : english;
-  }
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProfileProvider);
+    final lang = ref.watch(appLanguageProvider);
 
     return Container(
       width: double.infinity,
@@ -73,10 +63,10 @@ class AccountView extends ConsumerWidget {
         child: userAsync.when(
           data: (user) {
             if (user == null) {
-              return Center(child: Text(tr('User not found', 'အသုံးပြုသူ မရှိပါ'), style: const TextStyle(color: white)));
+              return Center(child: Text(lang.userNotFound, style: const TextStyle(color: white)));
             }
 
-            final String displayUid = user.uid.toUpperCase();
+            final String displayUserId = user.userId.isNotEmpty ? user.userId : user.uid.toUpperCase();
             final bool isAdmin = user.isAdmin;
 
             return SingleChildScrollView(
@@ -104,7 +94,7 @@ class AccountView extends ConsumerWidget {
                         else
                           const SizedBox(width: 27),
                         Text(
-                          tr('Wealth Center', 'Wealth Center'),
+                          lang.wealthCenter,
                           style: const TextStyle(
                             color: gold,
                             fontSize: 24,
@@ -145,33 +135,33 @@ class AccountView extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   
-                  // Copiable User ID (Force Uppercase)
+                  // Copiable User ID
                   GestureDetector(
                     onTap: () {
-                      Clipboard.setData(ClipboardData(text: displayUid));
-                      Alert.show(context, message: tr('User ID copied to clipboard', 'အသုံးပြုသူ ID ကို ကူးယူပြီးပါပြီ'), type: AlertType.success);
+                      Clipboard.setData(ClipboardData(text: displayUserId));
+                      Alert.show(context, message: lang.userIdCopied, type: AlertType.success);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'ID: $displayUid',
+                            'User ID: $displayUserId',
                             style: const TextStyle(
                               color: white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.copy, color: gold, size: 14),
+                          const Icon(Icons.copy, color: gold, size: 16),
                         ],
                       ),
                     ),
@@ -180,7 +170,7 @@ class AccountView extends ConsumerWidget {
 
                   // MEMBERSHIP
                   Text(
-                    '${tr('Membership Level', 'အဖွဲ့ဝင်အဆင့်')}: ${user.activeTier}',
+                    '${lang.membershipLevel}: ${user.activeTier}',
                     style: const TextStyle(
                       color: gold,
                       fontSize: 14,
@@ -196,7 +186,7 @@ class AccountView extends ConsumerWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: cardColor.withOpacity(0.95),
+                        color: cardColor.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(25),
                         border: Border.all(color: borderColor, width: 1.3),
                       ),
@@ -210,7 +200,7 @@ class AccountView extends ConsumerWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      tr('Total Balance', 'စုစုပေါင်းလက်ကျန်'),
+                                      lang.totalBalance,
                                       style: const TextStyle(
                                         color: white,
                                         fontSize: 14,
@@ -243,7 +233,7 @@ class AccountView extends ConsumerWidget {
                                     ),
                                   ),
                                   child: Text(
-                                    tr('Withdraw', 'ငွေထုတ်ရန်'),
+                                    lang.withdraw,
                                     style: const TextStyle(
                                       color: Colors.black,
                                       fontSize: 14,
@@ -265,7 +255,7 @@ class AccountView extends ConsumerWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      tr('Plan Progress', 'လုပ်ငန်းတိုးတက်မှု'),
+                                      lang.planProgress,
                                       style: const TextStyle(
                                         color: white,
                                         fontSize: 13,
@@ -274,7 +264,7 @@ class AccountView extends ConsumerWidget {
                                     ),
                                     const SizedBox(height: 5),
                                     Text(
-                                      '${user.tasksCompletedToday} ${tr('Tasks Done', 'ခုပြီးပြီ')}',
+                                      '${user.tasksCompletedToday} ${lang.tasksDone}',
                                       style: const TextStyle(
                                         color: white,
                                         fontSize: 15,
@@ -289,7 +279,7 @@ class AccountView extends ConsumerWidget {
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      tr('Total Profit', 'စုစုပေါင်းအမြတ်'),
+                                      lang.totalProfit,
                                       style: const TextStyle(
                                         color: white,
                                         fontSize: 13,
@@ -329,55 +319,55 @@ class AccountView extends ConsumerWidget {
                       children: [
                         _MenuItem(
                           icon: Icons.account_balance_wallet,
-                          title: tr('Add Funds', 'ငွေဖြည့်ရန်'),
+                          title: lang.addFunds,
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddFundsScreen())),
                         ),
                         _MenuItem(
                           icon: Icons.receipt_long,
-                          title: tr('Transactions', 'ငွေလွှဲမှတ်တမ်း'),
+                          title: lang.transactions,
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TransactionsScreen())),
                         ),
                         _MenuItem(
                           icon: Icons.people,
-                          title: tr('My Team', 'ကျွန်ုပ်အဖွဲ့'),
+                          title: lang.myTeam,
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MyTeamScreen())),
                         ),
                         _MenuItem(
                           icon: Icons.language,
-                          title: tr('Change Language', 'ဘာသာစကားပြောင်းရန်'),
+                          title: lang.changeLanguage,
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LanguagePage())),
                         ),
                         _MenuItem(
                           icon: Icons.share,
-                          title: tr('Register Now', 'ယခုစာရင်းသွင်းရန်'),
+                          title: lang.registerNow,
                           onTap: () {
                             DeepLinkService.shareReferralLink(
                               referralCode: user.myReferralCode,
                               appName: "PAM Wealth Flow",
-                              language: language,
+                              language: lang.languageCode,
                             );
                           },
                         ),
                         _MenuItem(
                           icon: Icons.shield,
-                          title: tr('Earn More', 'ပိုမိုရရှိရန်'),
+                          title: lang.earnMore,
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => ReferralManagementPage(language: language),
+                                builder: (context) => ReferralManagementPage(language: lang.languageCode),
                               ),
                             );
                           },
                         ),
                         _MenuItem(
                           icon: Icons.support_agent,
-                          title: tr('Help Center', 'အကူအညီ'),
+                          title: lang.helpCenter,
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpCenterScreen())),
                         ),
                         _MenuItem(
                           icon: Icons.card_giftcard,
-                          title: tr('Donate', 'လှူဒါန်းရန်'),
+                          title: lang.donate,
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DonateScreen())),
                         ),
                         // ADMIN BUTTON
@@ -407,7 +397,7 @@ class AccountView extends ConsumerWidget {
                         onPressed: onLogout,
                         icon: const Icon(Icons.logout, color: red, size: 20),
                         label: Text(
-                          tr('LOGOUT', 'ထွက်ရန်'),
+                          lang.logout,
                           style: const TextStyle(color: red, fontSize: 16, fontWeight: FontWeight.w700),
                         ),
                         style: OutlinedButton.styleFrom(

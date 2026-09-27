@@ -5,6 +5,7 @@ enum DepositStatus { pending, approved, declined }
 class DepositRequestModel {
   final String id;
   final String uid;
+  final String userId; // 6-digit User ID
   final String userName;
   final double amount;
   final String transactionHash;
@@ -14,6 +15,7 @@ class DepositRequestModel {
   DepositRequestModel({
     required this.id,
     required this.uid,
+    this.userId = '',
     required this.userName,
     required this.amount,
     required this.transactionHash,
@@ -25,6 +27,7 @@ class DepositRequestModel {
     return DepositRequestModel(
       id: id,
       uid: map['uid'] ?? '',
+      userId: map['userId']?.toString() ?? '',
       userName: map['userName'] ?? '',
       amount: (map['amount'] ?? 0.0).toDouble(),
       transactionHash: map['transactionHash'] ?? '',
@@ -39,6 +42,7 @@ class DepositRequestModel {
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
+      'userId': userId,
       'userName': userName,
       'amount': amount,
       'transactionHash': transactionHash,

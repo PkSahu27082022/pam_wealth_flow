@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pam_wealth_flow/AppManager/localization/app_language.dart';
+import 'package:pam_wealth_flow/AppManager/model/user_model.dart';
 import 'package:pam_wealth_flow/AppManager/service/snackbar_service.dart';
 import 'package:pam_wealth_flow/AppManager/view-model/account-vm/auth_vm.dart';
 import 'package:pam_wealth_flow/AppManager/view/account/forgot_password_view.dart';
 import 'package:pam_wealth_flow/AppManager/view/account/sign_up_view.dart';
+import 'package:pam_wealth_flow/AppManager/view/admin/admin_dashboard_view.dart';
 import 'package:pam_wealth_flow/AppManager/view/dashboard/pam-wealth_dashboard.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -29,16 +32,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   static const Color background = Color(0xFF090D13);
   static const Color cardColor = Color(0xFF171920);
 
-  bool get isBurmese => widget.language == 'my';
-
-  String get secureSignIn => isBurmese ? 'လုံခြုံစွာ ဝင်ရောက်ပါ' : 'Secure Sign In';
-  String get accountEmail => isBurmese ? 'အကောင့် / အီးမေးလ်' : 'Account / Email';
-  String get password => isBurmese ? 'စကားဝှက်' : 'Password';
-  String get forgotPassword => isBurmese ? 'စကားဝှက် မေ့နေပါသလား?' : 'Forgot Password?';
-  String get loginText => isBurmese ? 'ဝင်ရောက်ရန်' : 'LOGIN';
-  String get alreadyHaveAccount => isBurmese ? 'အကောင့်မရှိသေးပါလား? ' : "Don't have an account? ";
-  String get registerNow => isBurmese ? 'ယခု စာရင်းသွင်းပါ' : 'Register Now';
-
   @override
   void dispose() {
     emailController.dispose();
@@ -46,31 +39,43 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
-  Future<void> login() async {
-    if (!formKey.currentState!.validate()) return;
+  Future<UserModel?> login(AppLanguage lang) async {
+    if (!formKey.currentState!.validate()) return null;
 
     final email = emailController.text.trim();
     final passwordValue = passwordController.text.trim();
 
-    final success = await ref.read(authViewModelProvider.notifier).login(
+    final UserModel? user = await ref.read(authViewModelProvider.notifier).login(
       email: email,
       password: passwordValue,
     );
 
-    if (success && mounted) {
+    if (user != null && mounted) {
       Alert.show(
         context,
-        message: isBurmese ? 'ဝင်ရောက်ခြင်း အောင်မြင်ပါသည်' : 'Login successful',
+        message: lang.tr('Login successful', 'ဝင်ရောက်ခြင်း အောင်မြင်ပါသည်'),
         type: AlertType.success,
       );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => WealthCenterPage(
-            language: widget.language,
+
+      final bool isAdminUser = user.isAdmin || user.email.trim().toLowerCase() == 'wealthadmin@gmail.com';
+
+      if (isAdminUser) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AdminDashboardPage(),
           ),
-        ),
-      );
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WealthCenterPage(
+              language: lang.languageCode,
+            ),
+          ),
+        );
+      }
     } else if (mounted) {
       final state = ref.read(authViewModelProvider);
       if (state.hasError) {
@@ -82,12 +87,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
       }
     }
+
+    return user;
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authViewModelProvider);
     final isLoading = authState.isLoading;
+
+    final lang = ref.watch(appLanguageProvider);
 
     final size = MediaQuery.of(context).size;
     final textTheme = Theme.of(context).textTheme;
@@ -167,22 +176,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            secureSignIn,
+                            lang.loginToWealthFlow,
                             textAlign: TextAlign.center,
                             style: textTheme.titleMedium?.copyWith(
                               color: Colors.white,
-                              fontSize: isBurmese ? 18 : 20,
+                              fontSize: lang.languageCode == 'my' ? 18 : 20,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 28),
                           _InputField(
                             controller: emailController,
-                            hintText: accountEmail,
+                            hintText: lang.emailAddress,
                             icon: Icons.person,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return isBurmese ? 'အီးမေးလ် ထည့်ပါ' : 'Enter email';
+                                return lang.enterEmail;
                               }
                               return null;
                             },
@@ -190,12 +199,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           const SizedBox(height: 14),
                           _InputField(
                             controller: passwordController,
-                            hintText: password,
+                            hintText: lang.password,
                             icon: Icons.lock,
                             obscureText: obscurePassword,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return isBurmese ? 'စကားဝှက် ထည့်ပါ' : 'Enter password';
+                                return lang.enterPassword;
                               }
                               return null;
                             },
@@ -224,17 +233,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => ForgotPasswordPage(
-                                      language: widget.language,
+                                      language: lang.languageCode,
                                     ),
                                   ),
                                 );
                               },
                               child: Text(
-                                forgotPassword,
+                                lang.forgotPassword,
                                 textAlign: TextAlign.right,
                                 style: textTheme.bodyMedium?.copyWith(
                                   color: gold,
-                                  fontSize: isBurmese ? 12 : 14,
+                                  fontSize: lang.languageCode == 'my' ? 12 : 14,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -244,7 +253,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           SizedBox(
                             height: 52,
                             child: ElevatedButton(
-                              onPressed: isLoading ? null : login,
+                              onPressed: isLoading ? null : () => login(lang),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: gold,
                                 foregroundColor: Colors.black,
@@ -264,11 +273,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                       ),
                                     )
                                   : Text(
-                                      loginText,
+                                      lang.login,
                                       textAlign: TextAlign.center,
                                       style: textTheme.labelLarge?.copyWith(
                                         color: Colors.black,
-                                        fontSize: isBurmese ? 15 : 17,
+                                        fontSize: lang.languageCode == 'my' ? 15 : 17,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: 0.5,
                                       ),
@@ -288,30 +297,31 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     children: [
                       Flexible(
                         child: Text(
-                          alreadyHaveAccount,
+                          lang.dontHaveAccount,
                           textAlign: TextAlign.right,
                           style: textTheme.bodyMedium?.copyWith(
                             color: Colors.white,
-                            fontSize: isBurmese ? 12 : 14,
+                            fontSize: lang.languageCode == 'my' ? 12 : 14,
                           ),
                         ),
                       ),
+                      const SizedBox(width: 6),
                       GestureDetector(
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => SignUpPage(
-                                language: widget.language,
+                                language: lang.languageCode,
                               ),
                             ),
                           );
                         },
                         child: Text(
-                          registerNow,
+                          lang.registerNow,
                           style: textTheme.bodyMedium?.copyWith(
                             color: gold,
-                            fontSize: isBurmese ? 12 : 14,
+                            fontSize: lang.languageCode == 'my' ? 12 : 14,
                             fontWeight: FontWeight.w700,
                           ),
                         ),

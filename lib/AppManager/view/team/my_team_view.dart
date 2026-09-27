@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../localization/app_language.dart';
 import '../../view-model/account-vm/user_vm.dart';
-import '../../model/user_model.dart';
 
 class MyTeamScreen extends ConsumerWidget {
   const MyTeamScreen({Key? key}) : super(key: key);
@@ -15,6 +15,7 @@ class MyTeamScreen extends ConsumerWidget {
 
     final userProfile = ref.watch(userProfileProvider).value;
     final allUsersAsync = ref.watch(teamListProvider);
+    final lang = ref.watch(appLanguageProvider);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -25,9 +26,9 @@ class MyTeamScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text(
-          'My Team',
-          style: TextStyle(
+        title: Text(
+          lang.myTeam,
+          style: const TextStyle(
             color: goldColor,
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -61,9 +62,9 @@ class MyTeamScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Team Statistics',
-                    style: TextStyle(
+                  Text(
+                    lang.teamStatistics,
+                    style: const TextStyle(
                       color: goldColor,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -84,7 +85,7 @@ class MyTeamScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          'Total Team Size',
+                          lang.totalTeamSize,
                           style: TextStyle(
                             color: Colors.grey.shade400,
                             fontSize: 14,
@@ -98,7 +99,7 @@ class MyTeamScreen extends ConsumerWidget {
                             const Icon(Icons.people_alt, color: goldColor, size: 28),
                             const SizedBox(width: 10),
                             Text(
-                              '$totalSize Members',
+                              '$totalSize ${lang.members}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 26,
@@ -113,7 +114,7 @@ class MyTeamScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
 
                   _buildStatCard(
-                    title: 'Direct Members (LV 1)',
+                    title: lang.directMembersLv1,
                     value: level1.length.toString(),
                     cardColor: cardBackgroundColor,
                     borderColor: borderColor,
@@ -122,7 +123,7 @@ class MyTeamScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
 
                   _buildStatCard(
-                    title: 'Indirect Members (LV 2)',
+                    title: lang.indirectMembersLv2,
                     value: level2.length.toString(),
                     cardColor: cardBackgroundColor,
                     borderColor: borderColor,
@@ -131,7 +132,7 @@ class MyTeamScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
 
                   _buildStatCard(
-                    title: 'Extended Members (LV 3)',
+                    title: lang.extendedMembersLv3,
                     value: level3.length.toString(),
                     cardColor: cardBackgroundColor,
                     borderColor: borderColor,
@@ -142,7 +143,7 @@ class MyTeamScreen extends ConsumerWidget {
             );
           },
           loading: () => const Center(child: CircularProgressIndicator(color: goldColor)),
-          error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+          error: (err, stack) => Center(child: Text('${lang.error}: $err', style: const TextStyle(color: Colors.red))),
         ),
       ),
     );

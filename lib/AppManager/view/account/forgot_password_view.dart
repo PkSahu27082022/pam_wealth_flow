@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pam_wealth_flow/AppManager/localization/app_language.dart';
 import 'package:pam_wealth_flow/AppManager/service/snackbar_service.dart';
 import 'package:pam_wealth_flow/AppManager/view-model/account-vm/auth_vm.dart';
 
@@ -24,17 +25,13 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   static const Color cardColor = Color(0xFF171920);
   static const Color fieldColor = Color(0xFF181A21);
 
-  bool get isBurmese => widget.language == 'my';
-
-  String tr(String english, String burmese) => isBurmese ? burmese : english;
-
   @override
   void dispose() {
     emailController.dispose();
     super.dispose();
   }
 
-  Future<void> resetPassword() async {
+  Future<void> resetPassword(AppLanguage lang) async {
     if (!formKey.currentState!.validate()) return;
 
     final success = await ref.read(authViewModelProvider.notifier).forgotPassword(
@@ -44,7 +41,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
     if (success && mounted) {
       Alert.show(
         context,
-        message: tr(
+        message: lang.tr(
           'Password reset email sent. Please check your inbox.',
           'စကားဝှက်ပြန်လည်သတ်မှတ်ရန် အီးမေးလ် ပို့လိုက်ပါပြီ။ ကျေးဇူးပြု၍ စစ်ဆေးပါ။',
         ),
@@ -68,8 +65,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authViewModelProvider);
     final isLoading = authState.isLoading;
-
-
+    final lang = ref.watch(appLanguageProvider);
 
     final size = MediaQuery.of(context).size;
 
@@ -130,7 +126,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                         child: Column(
                           children: [
                             Text(
-                              tr('Reset Password', 'စကားဝှက် ပြန်လည်သတ်မှတ်ပါ'),
+                              lang.resetPassword,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
@@ -139,7 +135,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              tr(
+                              lang.tr(
                                 'Enter your email to receive a reset link',
                                 'ပြန်လည်သတ်မှတ်ရန် လင့်ခ်လက်ခံရယူရန် အီးမေးလ်ထည့်ပါ',
                               ),
@@ -151,7 +147,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                               controller: emailController,
                               style: const TextStyle(color: Colors.white, fontSize: 15),
                               decoration: InputDecoration(
-                                hintText: tr('Email Address', 'အီးမေးလ်လိပ်စာ'),
+                                hintText: lang.emailAddress,
                                 hintStyle: const TextStyle(color: Color(0xFFE1E1E4), fontSize: 15),
                                 prefixIcon: const Icon(Icons.email, color: gold, size: 22),
                                 filled: true,
@@ -175,8 +171,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                                 ),
                               ),
                               validator: (value) {
-                                if (value == null || value.isEmpty) return tr('Enter email', 'အီးမေးလ် ထည့်ပါ');
-                                if (!value.contains('@')) return tr('Enter valid email', 'မှန်ကန်သော အီးမေးလ် ထည့်ပါ');
+                                if (value == null || value.isEmpty) return lang.enterEmail;
+                                if (!value.contains('@')) return lang.enterValidEmail;
                                 return null;
                               },
                             ),
@@ -185,7 +181,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                               width: double.infinity,
                               height: 52,
                               child: ElevatedButton(
-                                onPressed: isLoading ? null : resetPassword,
+                                onPressed: isLoading ? null : () => resetPassword(lang),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: gold,
                                   foregroundColor: Colors.black,
@@ -198,7 +194,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
                                       )
                                     : Text(
-                                        tr('SEND LINK', 'လင့်ခ် ပို့မည်'),
+                                        lang.sendLink,
                                         style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                                       ),
                               ),

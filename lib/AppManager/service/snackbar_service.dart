@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 enum AlertType { success, error, warning, info }
 
 class Alert {
+  /// Floating SnackBar Banner
   static void show(
     BuildContext context, {
     required String message,
@@ -37,7 +38,6 @@ class Alert {
         icon = Icons.info_outline;
         break;
       case AlertType.error:
-      default:
         bgColor = const Color(0xFFC72C41);
         icon = Icons.error_outline;
         break;
@@ -57,7 +57,7 @@ class Alert {
             borderRadius: const BorderRadius.all(Radius.circular(20)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -95,6 +95,110 @@ class Alert {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Common Reusable Modal Alert Dialog
+  static Future<void> showPopup(
+    BuildContext context, {
+    required String title,
+    required String message,
+    AlertType type = AlertType.info,
+    String buttonText = 'OK',
+    VoidCallback? onPressed,
+  }) {
+    Color iconColor;
+    IconData icon;
+
+    switch (type) {
+      case AlertType.success:
+        iconColor = const Color(0xFF4CAF50);
+        icon = Icons.check_circle_rounded;
+        break;
+      case AlertType.warning:
+        iconColor = const Color(0xFFFFC107);
+        icon = Icons.warning_rounded;
+        break;
+      case AlertType.info:
+        iconColor = const Color(0xFF2196F3);
+        icon = Icons.info_rounded;
+        break;
+      case AlertType.error:
+      default:
+        iconColor = const Color(0xFFE57373);
+        icon = Icons.error_rounded;
+        break;
+    }
+
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF171920),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: Color(0xFF50525A), width: 1.2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 48),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFFDDB83A),
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    if (onPressed != null) onPressed();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFDDB83A),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text(
+                    buttonText,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
               ),
             ],

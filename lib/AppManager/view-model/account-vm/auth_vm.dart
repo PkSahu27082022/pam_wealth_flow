@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pam_wealth_flow/AppManager/model/user_model.dart';
 import 'package:pam_wealth_flow/AppManager/service/auth_service.dart';
 
 final authViewModelProvider = AsyncNotifierProvider<AuthViewModel, void>(AuthViewModel.new);
@@ -11,26 +12,21 @@ class AuthViewModel extends AsyncNotifier<void> {
     return;
   }
 
-  Future<bool> login({
+  Future<UserModel?> login({
     required String email,
     required String password,
   }) async {
     state = const AsyncValue.loading();
-    bool success = false;
+    UserModel? user;
 
     state = await AsyncValue.guard(() async {
-      final error = await _authService.loginUser(
+      user = await _authService.loginUser(
         email: email,
         password: password,
       );
-
-      if (error != null) {
-        throw Exception(error);
-      }
-      success = true;
     });
 
-    return success;
+    return user;
   }
 
   Future<bool> register({

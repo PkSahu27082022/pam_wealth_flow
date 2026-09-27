@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../localization/app_language.dart';
 import '../../view-model/account-vm/user_vm.dart';
 import '../../service/snackbar_service.dart';
 
@@ -23,18 +24,18 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
     super.dispose();
   }
 
-  Future<void> _submitDonation() async {
+  Future<void> _submitDonation(AppLanguage lang) async {
     final target = _targetController.text.trim();
     final amountText = _amountController.text.trim();
 
     if (target.isEmpty || amountText.isEmpty) {
-      Alert.show(context, message: 'Please fill all fields', type: AlertType.warning);
+      Alert.show(context, message: lang.tr('Please fill all fields', 'ကျေးဇူးပြု၍ ကွက်လပ်အားလုံး ဖြည့်ပါ'), type: AlertType.warning);
       return;
     }
 
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
-      Alert.show(context, message: 'Invalid amount', type: AlertType.warning);
+      Alert.show(context, message: lang.tr('Invalid amount', 'ပမာဏ မှားယွင်းနေပါသည်'), type: AlertType.warning);
       return;
     }
 
@@ -46,7 +47,7 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
       if (mounted) {
         setState(() => _isSubmitting = false);
         if (error == null) {
-          _showSuccessDialog(amount, target);
+          _showSuccessDialog(amount, target, lang);
         } else {
           Alert.show(context, message: error, type: AlertType.error);
         }
@@ -54,7 +55,7 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
     }
   }
 
-  void _showSuccessDialog(double amount, String target) {
+  void _showSuccessDialog(double amount, String target, AppLanguage lang) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -74,13 +75,13 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
                 children: [
                   const Icon(Icons.favorite, color: Colors.redAccent, size: 80),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Transfer Successful',
-                    style: TextStyle(color: Color(0xFFE5B83B), fontSize: 22, fontWeight: FontWeight.bold),
+                  Text(
+                    lang.transferSuccessful,
+                    style: const TextStyle(color: Color(0xFFE5B83B), fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Successfully donated $amount THB to member ($target).',
+                    '${lang.successfullyDonated} $amount THB ($target).',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                   ),
@@ -95,7 +96,7 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
                     ),
-                    child: const Text('DONE', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    child: Text(lang.done, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -113,6 +114,8 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
     const goldColor = Color(0xFFE5B83B);
     const borderColor = Color(0xFF2A313D);
 
+    final lang = ref.watch(appLanguageProvider);
+
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
@@ -122,9 +125,9 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text(
-          'Donate to Member',
-          style: TextStyle(
+        title: Text(
+          lang.donateToMember,
+          style: const TextStyle(
             color: goldColor,
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -145,19 +148,19 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
                 color: goldColor,
               ),
               const SizedBox(height: 15),
-              const Text(
-                'Support Team Members',
-                style: TextStyle(
+              Text(
+                lang.supportTeamMembers,
+                style: const TextStyle(
                   color: goldColor,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Transfer or donate THB assets to your team members downline instantly.',
+              Text(
+                lang.transferOrDonateMsg,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
@@ -176,9 +179,9 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Donation Details',
-                      style: TextStyle(
+                    Text(
+                      lang.donationDetails,
+                      style: const TextStyle(
                         color: goldColor,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -190,7 +193,7 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
                       controller: _targetController,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Member Email or User ID',
+                        hintText: lang.memberEmailOrUserId,
                         hintStyle: TextStyle(color: Colors.grey.shade500),
                         filled: true,
                         fillColor: cardBackgroundColor,
@@ -215,7 +218,7 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
                       style: const TextStyle(color: Colors.white),
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        hintText: 'Amount (THB)',
+                        hintText: lang.amountThb,
                         hintStyle: TextStyle(color: Colors.grey.shade500),
                         filled: true,
                         fillColor: cardBackgroundColor,
@@ -239,7 +242,7 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: _isSubmitting ? null : _submitDonation,
+                        onPressed: _isSubmitting ? null : () => _submitDonation(lang),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: goldColor,
                           disabledBackgroundColor: Colors.grey,
@@ -254,9 +257,9 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
                                 width: 20,
                                 child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
                               )
-                            : const Text(
-                                'SUBMIT DONATION',
-                                style: TextStyle(
+                            : Text(
+                                lang.submitDonation,
+                                style: const TextStyle(
                                   color: Colors.black,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,

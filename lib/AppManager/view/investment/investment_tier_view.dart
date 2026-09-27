@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../localization/app_language.dart';
 import '../../view-model/investment-vm/investment_tier_vm.dart';
 import '../../view-model/account-vm/user_vm.dart';
 import '../../service/snackbar_service.dart';
@@ -27,15 +28,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
   static const Color borderColor = Color(0xFF50525A);
   static const Color white = Color(0xFFF2F2F3);
 
-  // ===========================================================================
-  // LANGUAGE
-  // ===========================================================================
-
-  String tr(String english, String burmese) {
-    return widget.language == 'my' ? burmese : english;
-  }
-
-  void _showSuccessDialog(String title) {
+  void _showSuccessDialog(String title, AppLanguage lang) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -56,12 +49,12 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                   const Icon(Icons.check_circle_outline, color: Colors.green, size: 80),
                   const SizedBox(height: 20),
                   Text(
-                    tr('Plan Unlocked!', 'အစီအစဉ်ကို ဖွင့်လှစ်ပြီးပါပြီ။'),
+                    lang.planUnlocked,
                     style: const TextStyle(color: gold, fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    '${tr('You have successfully activated', 'သင်သည် အောင်မြင်စွာ အသက်သွင်းပြီးပါပြီ')} $title',
+                    '${lang.planUnlockedMsg} $title',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: white, fontSize: 14),
                   ),
@@ -73,7 +66,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
                     ),
-                    child: const Text('OK', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    child: Text(lang.ok, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -92,6 +85,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
   Widget build(BuildContext context) {
     final tiersAsync = ref.watch(investmentTiersProvider);
     final userAsync = ref.watch(userProfileProvider);
+    final lang = ref.watch(appLanguageProvider);
 
     return Container(
       width: double.infinity,
@@ -119,7 +113,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                   Expanded(
                     child: Center(
                       child: Text(
-                        tr('Investment Tiers', 'ရင်းနှီးမြှုပ်နှံမှုအဆင့်များ'),
+                        lang.investmentTiers,
                         style: const TextStyle(
                           color: gold,
                           fontSize: 28,
@@ -140,9 +134,10 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                 data: (user) => _activePortfolioCard(
                   user?.activeTier ?? 'None',
                   user?.balance ?? 0.0,
+                  lang,
                 ),
-                loading: () => _activePortfolioCard('Loading...', 0.0),
-                error: (e, s) => _activePortfolioCard('None', 0.0),
+                loading: () => _activePortfolioCard('Loading...', 0.0, lang),
+                error: (e, s) => _activePortfolioCard('None', 0.0, lang),
               ),
 
               const SizedBox(height: 20),
@@ -152,13 +147,12 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
               // ===============================================================
               tiersAsync.when(
                 data: (tiers) {
-                  // Filter out GV related plans as requested
                   final filteredTiers = tiers.where((t) => !t.title.toUpperCase().contains('GV')).toList();
 
                   if (filteredTiers.isEmpty) {
                     return Center(
                       child: Text(
-                        tr('No investment plans available.', 'ရင်းနှီးမြှုပ်နှံမှု အစီအစဉ်များ မရှိသေးပါ။'),
+                        lang.noPlansAvailable,
                         style: const TextStyle(color: white),
                       ),
                     );
@@ -170,6 +164,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                         child: _tierCard(
                           context: context,
                           ref: ref,
+                          lang: lang,
                           title: tier.title,
                           dailyCapacity: tier.dailyTask,
                           orderRate: tier.payPerTask,
@@ -188,7 +183,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                 ),
                 error: (err, stack) => Center(
                   child: Text(
-                    tr('Error loading plans', 'အစီအစဉ်များ ရှာမတွေ့ပါ'),
+                    lang.errorLoadingPlans,
                     style: const TextStyle(color: Colors.red),
                   ),
                 ),
@@ -204,7 +199,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
   // ACTIVE PORTFOLIO CARD
   // ===========================================================================
 
-  Widget _activePortfolioCard(String activeTier, double balance) {
+  Widget _activePortfolioCard(String activeTier, double balance, AppLanguage lang) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(17, 16, 15, 15),
@@ -217,7 +212,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${tr('Active Portfolio', 'လက်ရှိ Portfolio')}: $activeTier',
+            '${lang.activePortfolio}: $activeTier',
             style: const TextStyle(
               color: gold,
               fontSize: 22,
@@ -230,7 +225,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
             children: [
               Expanded(
                 child: Text(
-                  '${tr('Balance', 'လက်ကျန်ငွေ')}: ${balance.toStringAsFixed(2)} THB',
+                  '${lang.balance}: ${balance.toStringAsFixed(2)} THB',
                   style: const TextStyle(
                     color: white,
                     fontSize: 16,
@@ -243,7 +238,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    tr('Expiry Date', 'သက်တမ်းကုန်ဆုံးရက်'),
+                    lang.expiryDate,
                     style: const TextStyle(
                       color: white,
                       fontSize: 14,
@@ -275,6 +270,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
   Widget _tierCard({
     required BuildContext context,
     required WidgetRef ref,
+    required AppLanguage lang,
     required String title,
     required String dailyCapacity,
     required String orderRate,
@@ -315,7 +311,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    tr('Active', 'အသုံးပြုနေသည်'),
+                    lang.active,
                     style: const TextStyle(color: gold, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -328,13 +324,13 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow(tr('Daily Task', 'နေ့စဉ်တာဝန်'), dailyCapacity),
+                  _infoRow(lang.dailyTask, dailyCapacity),
                   const SizedBox(height: 5),
-                  _infoRow(tr('Pay Per Task', 'တာဝန်တစ်ခုနှုန်း'), orderRate),
+                  _infoRow(lang.payPerTask, orderRate),
                   const SizedBox(height: 5),
-                  _infoRow(tr('Daily ROI', 'နေ့စဉ်ရရှိငွေ'), potentialROI),
+                  _infoRow(lang.dailyRoi, potentialROI),
                   const SizedBox(height: 5),
-                  _infoRow(tr('Investment Amount', 'ရင်းနှီးမြှုပ်နှံငွေ'), capitalRequirement),
+                  _infoRow(lang.investmentAmount, capitalRequirement),
                 ],
               ),
               if (!isCurrent)
@@ -347,7 +343,6 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
 
                       setState(() => _unlockingTierTitle = title);
 
-                      // Parse numerical value out of requirement string
                       final costStr = capitalRequirement.replaceAll(RegExp(r'[^0-9]'), '');
                       final cost = double.tryParse(costStr) ?? 0.0;
 
@@ -358,7 +353,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                         if (error != null) {
                           Alert.show(context, message: error, type: AlertType.error);
                         } else {
-                          _showSuccessDialog(title);
+                          _showSuccessDialog(title, lang);
                         }
                       }
                     },
@@ -370,7 +365,7 @@ class _InvestmentTiersPageState extends ConsumerState<InvestmentTiersPage> {
                     child: isUnlocking
                         ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: gold))
                         : Text(
-                            tr('Unlock', 'ဖွင့်ရန်'),
+                            lang.unlock,
                             style: const TextStyle(color: gold, fontSize: 12, fontWeight: FontWeight.w700),
                           ),
                   ),

@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pam_wealth_flow/AppManager/view/account/language_view.dart';
 import 'package:pam_wealth_flow/AppManager/service/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:pam_wealth_flow/AppManager/view/account/login_view.dart';
 import 'package:pam_wealth_flow/AppManager/view/profit/profit_analytic_view.dart';
 import 'package:pam_wealth_flow/AppManager/view/task/reel_view.dart';
+import 'package:pam_wealth_flow/AppManager/localization/app_language.dart';
 
 import '../account/account_view.dart';
 import '../chat/chat_view.dart';
@@ -29,55 +29,52 @@ class _WealthCenterPageState extends ConsumerState<WealthCenterPage> {
   // ===========================================================================
 
   static const Color background = Color(0xFF090D13);
-  static const Color gold = Color(0xFFDDB83A);
 
-  // ===========================================================================
-  // TRANSLATION
-  // ===========================================================================
-
-  String tr(String english, String burmese) {
-    return widget.language == 'my' ? burmese : english;
-  }
-
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
   int _selectedIndex = 0;
 
-  List<Widget> get _pages => [
-    // 0 - HOME
-    HomePage(language: widget.language),
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(appLanguageProvider.notifier).changeLanguage(widget.language);
+    });
+  }
 
-    // 1 - CHAT
-    ChatPage(language: widget.language),
-
-    // 2 - TASK
-    DailyTasksPage(language: widget.language, currentTab: _selectedIndex == 2),
-
-    // 3 - VIP
-    InvestmentTiersPage(language: widget.language),
-
-    // 4 - PROFIT
-    ProfitAnalyticsPage(language: widget.language),
-
-    // 5 - ACCOUNT
-    AccountView(
-      language: widget.language,
-      onLogout: _logout,
-      onWithdraw: _withdraw,
-    ),
-  ];
+  Widget _getPage(int index, AppLanguage lang) {
+    switch (index) {
+      case 0:
+        return HomePage(language: lang.languageCode);
+      case 1:
+        return ChatPage(language: lang.languageCode);
+      case 2:
+        return DailyTasksPage(language: lang.languageCode, currentTab: true);
+      case 3:
+        return InvestmentTiersPage(language: lang.languageCode);
+      case 4:
+        return ProfitAnalyticsPage(language: lang.languageCode);
+      case 5:
+        return AccountView(
+          language: lang.languageCode,
+          onLogout: _logout,
+          onWithdraw: _withdraw,
+        );
+      default:
+        return HomePage(language: lang.languageCode);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final lang = ref.watch(appLanguageProvider);
+
     return PopScope(
       canPop: false,
       child: Scaffold(
         backgroundColor: background,
-  
+
         body: SafeArea(
           bottom: false,
-  
+
           child: Container(
             decoration: const BoxDecoration(
               gradient: RadialGradient(
@@ -86,15 +83,15 @@ class _WealthCenterPageState extends ConsumerState<WealthCenterPage> {
                 colors: [Color(0xFF15191F), Color(0xFF0D1117), Color(0xFF090D13)],
               ),
             ),
-  
+
             child: Column(
               children: [
                 Expanded(
-                  child: IndexedStack(index: _selectedIndex, children: _pages),
+                  child: _getPage(_selectedIndex, lang),
                 ),
-  
+
                 _BottomNavigation(
-                  language: widget.language,
+                  lang: lang,
                   selectedIndex: _selectedIndex,
                   onTap: _onBottomNavTap,
                 ),
@@ -111,9 +108,10 @@ class _WealthCenterPageState extends ConsumerState<WealthCenterPage> {
   // ===========================================================================
 
   void _withdraw() {
+    final lang = ref.read(appLanguageProvider);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(tr('Withdraw selected', 'ငွေထုတ်ရန် ရွေးချယ်ထားသည်')),
+        content: Text(lang.withdrawSelected),
       ),
     );
   }
@@ -153,21 +151,17 @@ class _WealthCenterPageState extends ConsumerState<WealthCenterPage> {
 // ===========================================================================
 
 class _BottomNavigation extends StatelessWidget {
-  final String language;
+  final AppLanguage lang;
   final int selectedIndex;
   final Function(int) onTap;
 
   const _BottomNavigation({
-    required this.language,
+    required this.lang,
     required this.selectedIndex,
     required this.onTap,
   });
 
   static const Color gold = Color(0xFFDDB83A);
-
-  String tr(String english, String burmese) {
-    return language == 'my' ? burmese : english;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -186,42 +180,42 @@ class _BottomNavigation extends StatelessWidget {
         children: [
           _BottomItem(
             icon: Icons.home,
-            title: tr('Home', 'ပင်မ'),
+            title: lang.home,
             selected: selectedIndex == 0,
             onTap: () => onTap(0),
           ),
 
           _BottomItem(
             icon: Icons.chat,
-            title: tr('Chat', 'စကားပြော'),
+            title: lang.chat,
             selected: selectedIndex == 1,
             onTap: () => onTap(1),
           ),
 
           _BottomItem(
             icon: Icons.format_list_bulleted,
-            title: tr('Task', 'တာဝန်'),
+            title: lang.task,
             selected: selectedIndex == 2,
             onTap: () => onTap(2),
           ),
 
           _BottomItem(
             icon: Icons.diamond,
-            title: tr('VIP', 'VIP'),
+            title: lang.vip,
             selected: selectedIndex == 3,
             onTap: () => onTap(3),
           ),
 
           _BottomItem(
             icon: Icons.attach_money,
-            title: tr('Profit', 'အမြတ်'),
+            title: lang.profit,
             selected: selectedIndex == 4,
             onTap: () => onTap(4),
           ),
 
           _BottomItem(
             icon: Icons.account_circle,
-            title: tr('Account', 'အကောင့်'),
+            title: lang.account,
             selected: selectedIndex == 5,
             onTap: () => onTap(5),
           ),

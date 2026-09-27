@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../localization/app_language.dart';
 import '../../view-model/task-vm/reel_vm.dart';
 import '../../view-model/account-vm/user_vm.dart';
 import '../../view-model/investment-vm/investment_tier_vm.dart';
@@ -57,10 +58,8 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
   // LANGUAGE HELPERS
   // ===========================================================================
 
-  bool get isBurmese => widget.language == 'my';
-
   String tr(String english, String burmese) {
-    return isBurmese ? burmese : english;
+    return ref.read(appLanguageProvider).tr(english, burmese);
   }
 
   // ===========================================================================
@@ -279,6 +278,7 @@ class _DailyTasksPageState extends ConsumerState<DailyTasksPage>
 
   @override
   Widget build(BuildContext context) {
+    final lang = ref.watch(appLanguageProvider);
     final reelsAsync = ref.watch(reelsProvider);
     final userAsync = ref.watch(userProfileProvider);
     final tiersAsync = ref.watch(investmentTiersProvider);

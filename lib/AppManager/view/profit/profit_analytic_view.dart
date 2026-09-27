@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../localization/app_language.dart';
 import '../../view-model/account-vm/user_vm.dart';
 
 class ProfitAnalyticsPage extends ConsumerWidget {
@@ -21,18 +22,11 @@ class ProfitAnalyticsPage extends ConsumerWidget {
   static const Color white = Color(0xFFF2F2F3);
   static const Color green = Color(0xFF50D565);
 
-  // ===========================================================================
-  // TRANSLATION
-  // ===========================================================================
-
-  String tr(String english, String burmese) {
-    return language == 'my' ? burmese : english;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profitAsync = ref.watch(profitStatsProvider);
     final taskProgressAsync = ref.watch(taskProgressProvider);
+    final lang = ref.watch(appLanguageProvider);
 
     return Container(
       width: double.infinity,
@@ -66,7 +60,7 @@ class ProfitAnalyticsPage extends ConsumerWidget {
                           Expanded(
                             child: Center(
                               child: Text(
-                                tr('Profit Analytics', 'အမြတ်ခွဲခြမ်းစိတ်ဖြာမှု'),
+                                lang.profitAnalytics,
                                 style: const TextStyle(
                                   color: gold,
                                   fontSize: 20,
@@ -82,7 +76,7 @@ class ProfitAnalyticsPage extends ConsumerWidget {
 
                       // EARNINGS SUMMARY
                       Text(
-                        tr('Earnings Summary', 'ဝင်ငွေအကျဉ်းချုပ်'),
+                        lang.earningsSummary,
                         style: const TextStyle(
                           color: gold,
                           fontSize: 20,
@@ -92,18 +86,18 @@ class ProfitAnalyticsPage extends ConsumerWidget {
                       const SizedBox(height: 16),
 
                       // TOTAL EARNINGS CARD
-                      _buildEarningsCard(stats),
+                      _buildEarningsCard(stats, lang),
 
                       const SizedBox(height: 10),
 
                       // MONTHLY DETAILS CARD
-                      _buildDetailsCard(stats),
+                      _buildDetailsCard(stats, lang),
 
                       const SizedBox(height: 15),
 
                       // TASK STATISTICS
                       Text(
-                        tr('Task Statistics', 'လုပ်ငန်းစာရင်းအင်း'),
+                        lang.taskStatistics,
                         style: const TextStyle(
                           color: gold,
                           fontSize: 20,
@@ -116,6 +110,7 @@ class ProfitAnalyticsPage extends ConsumerWidget {
                       _buildTaskStatisticsCard(
                         progress['completed'] ?? 0,
                         progress['remaining'] ?? 0,
+                        lang,
                       ),
                     ],
                   ),
@@ -132,7 +127,7 @@ class ProfitAnalyticsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildEarningsCard(Map<String, double> stats) {
+  Widget _buildEarningsCard(Map<String, double> stats, AppLanguage lang) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 19, 16, 15),
@@ -149,7 +144,7 @@ class ProfitAnalyticsPage extends ConsumerWidget {
               const Icon(Icons.trending_up, color: green, size: 18),
               const SizedBox(width: 8),
               Text(
-                tr('Total Earnings', 'စုစုပေါင်းဝင်ငွေ'),
+                lang.totalEarnings,
                 style: const TextStyle(
                   color: white,
                   fontSize: 14,
@@ -177,15 +172,15 @@ class ProfitAnalyticsPage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _earningItem(
-                title: tr('Yesterday', 'မနေ့က'),
+                title: lang.yesterday,
                 value: stats['yesterday']?.toStringAsFixed(2) ?? '0.00',
               ),
               _earningItem(
-                title: tr('Today', 'ဒီနေ့'),
+                title: lang.today,
                 value: stats['today']?.toStringAsFixed(2) ?? '0.00',
               ),
               _earningItem(
-                title: tr('This Week', 'ဒီအပတ်'),
+                title: lang.thisWeek,
                 value: stats['thisWeek']?.toStringAsFixed(2) ?? '0.00',
               ),
             ],
@@ -220,7 +215,7 @@ class ProfitAnalyticsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetailsCard(Map<String, double> stats) {
+  Widget _buildDetailsCard(Map<String, double> stats, AppLanguage lang) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
@@ -231,13 +226,13 @@ class ProfitAnalyticsPage extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          _detailRow(tr('This Month', 'ယခုလ'), '${stats['thisMonth']?.toStringAsFixed(2)} THB'),
+          _detailRow(lang.thisMonth, '${stats['thisMonth']?.toStringAsFixed(2)} THB'),
           const SizedBox(height: 10),
-          _detailRow(tr('Offer Earning', 'ကမ်းလှမ်းမှုဝင်ငွေ'), '0.00 THB'),
+          _detailRow(lang.offerEarning, '0.00 THB'),
           const SizedBox(height: 10),
-          _detailRow(tr('Referral Rewards', 'ရည်ညွှန်းဆုကြေး'), '${stats['referralRewards']?.toStringAsFixed(2)} THB'),
+          _detailRow(lang.referralRewards, '${stats['referralRewards']?.toStringAsFixed(2)} THB'),
           const SizedBox(height: 10),
-          _detailRow(tr('Task Rewards', 'လုပ်ငန်းဆုကြေး'), '${stats['taskRewards']?.toStringAsFixed(2)} THB'),
+          _detailRow(lang.taskRewards, '${stats['taskRewards']?.toStringAsFixed(2)} THB'),
         ],
       ),
     );
@@ -271,7 +266,7 @@ class ProfitAnalyticsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildTaskStatisticsCard(int completed, int remaining) {
+  Widget _buildTaskStatisticsCard(int completed, int remaining, AppLanguage lang) {
     return Container(
       width: double.infinity,
       height: 80,
@@ -297,7 +292,7 @@ class ProfitAnalyticsPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  tr('Completed Today', 'ယနေ့ပြီးစီးမှု'),
+                  lang.completedToday,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: white,
@@ -327,7 +322,7 @@ class ProfitAnalyticsPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  tr('Remaining Today', 'ယနေ့ကျန်ရှိမှု'),
+                  lang.remainingToday,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: white,

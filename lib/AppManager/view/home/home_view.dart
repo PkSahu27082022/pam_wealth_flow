@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../localization/app_language.dart';
 import '../../view-model/account-vm/user_vm.dart';
 import '../../view-model/investment-vm/investment_tier_vm.dart';
 import '../admin/admin_dashboard_view.dart';
@@ -22,20 +23,11 @@ class HomePage extends ConsumerWidget {
     required this.language,
   });
 
-  // ============================================================
-  // LANGUAGE
-  // ============================================================
-
-  bool get isBurmese => language == 'my';
-
-  String tr(String english, String burmese) {
-    return isBurmese ? burmese : english;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProfileProvider);
     final profitAsync = ref.watch(profitStatsProvider);
+    final lang = ref.watch(appLanguageProvider);
 
     return Scaffold(
       backgroundColor: background,
@@ -144,7 +136,7 @@ class HomePage extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  tr('Admin Control Panel', 'အက်ဒမင် ထိန်းချုပ်ခန်း'),
+                                  lang.adminControlPanel,
                                   style: const TextStyle(
                                     color: gold,
                                     fontSize: 15,
@@ -153,7 +145,7 @@ class HomePage extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  tr('Tap to manage users, deposits & settings', 'အသုံးပြုသူများ၊ ငွေသွင်းမှုများနှင့် ဆက်တင်များကို စီမံရန် နှိပ်ပါ'),
+                                  lang.adminSubTitle,
                                   style: const TextStyle(color: Colors.white70, fontSize: 11),
                                 ),
                               ],
@@ -169,7 +161,7 @@ class HomePage extends ConsumerWidget {
 
                 // OPERATIONAL ANALYTICS
                 Text(
-                  tr('Operational Analytics', 'လုပ်ငန်းဆိုင်ရာ ခွဲခြမ်းစိတ်ဖြာမှု'),
+                  lang.operationalAnalytics,
                   style: const TextStyle(
                     color: gold,
                     fontSize: 20,
@@ -205,7 +197,7 @@ class HomePage extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              tr('Portfolio Balance', 'ရင်းနှီးမြှုပ်နှံမှု လက်ကျန်ငွေ'),
+                              lang.portfolioBalance,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
@@ -236,7 +228,7 @@ class HomePage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            tr('Total Profit', 'စုစုပေါင်းအမြတ်'),
+                            lang.totalProfit,
                             style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                           profitAsync.when(
@@ -257,7 +249,7 @@ class HomePage extends ConsumerWidget {
 
                 // INCOME TIERS
                 Text(
-                  tr('Income Tiers', 'ဝင်ငွေအဆင့်များ'),
+                  lang.incomeTiers,
                   style: const TextStyle(
                     color: gold,
                     fontSize: 20,

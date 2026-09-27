@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../localization/app_language.dart';
 import '../../view-model/account-vm/user_vm.dart';
 import '../../model/transaction_model.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,8 @@ class TransactionsScreen extends ConsumerWidget {
     const backgroundColor = Color(0xFF0F1218);
     const goldColor = Color(0xFFE5B83B);
 
+    final lang = ref.watch(appLanguageProvider);
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -23,23 +26,23 @@ class TransactionsScreen extends ConsumerWidget {
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.of(context).maybePop(),
           ),
-          title: const Text(
-            'Transactions',
-            style: TextStyle(
+          title: Text(
+            lang.transactions,
+            style: const TextStyle(
               color: goldColor,
               fontWeight: FontWeight.bold,
               fontSize: 20,
             ),
           ),
           centerTitle: true,
-          bottom: const TabBar(
+          bottom: TabBar(
             indicatorColor: goldColor,
             labelColor: goldColor,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             unselectedLabelColor: Colors.white70,
             tabs: [
-              Tab(text: "My History"),
-              Tab(text: "Referral History"),
+              Tab(text: lang.myHistory),
+              Tab(text: lang.referralHistory),
             ],
           ),
         ),
@@ -83,6 +86,7 @@ class _TransactionList extends ConsumerWidget {
     const borderColor = Color(0xFF2A313D);
 
     final transactionsAsync = ref.watch(provider);
+    final lang = ref.watch(appLanguageProvider);
 
     return transactionsAsync.when(
       data: (transactions) {
@@ -94,7 +98,7 @@ class _TransactionList extends ConsumerWidget {
                 const Icon(Icons.history, size: 64, color: Colors.white10),
                 const SizedBox(height: 16),
                 Text(
-                  isReferral ? "No referral activity yet." : "No transactions yet.",
+                  isReferral ? lang.noReferralActivityYet : lang.noTransactionsYet,
                   style: const TextStyle(color: Colors.white54, fontSize: 16),
                 ),
               ],
@@ -205,7 +209,7 @@ class _TransactionList extends ConsumerWidget {
       },
       loading: () => const Center(child: CircularProgressIndicator(color: goldColor)),
       error: (err, stack) => Center(
-        child: Text("Error: $err", style: const TextStyle(color: Colors.red)),
+        child: Text("${lang.error}: $err", style: const TextStyle(color: Colors.red)),
       ),
     );
   }

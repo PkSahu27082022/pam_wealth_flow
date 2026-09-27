@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pam_wealth_flow/AppManager/localization/app_language.dart';
 import 'package:pam_wealth_flow/AppManager/view-model/account-vm/auth_vm.dart';
 import '../../service/snackbar_service.dart';
 import 'login_view.dart';
@@ -24,8 +25,6 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   static const Color gold = Color(0xFFDDB83A);
   static const Color background = Color(0xFF090D13);
   static const Color cardColor = Color(0xFF171920);
-  static const Color fieldColor = Color(0xFF18191F);
-  static const Color borderColor = Color(0xFF50525A);
 
   final usernameController = TextEditingController();
   final emailController = TextEditingController();
@@ -37,10 +36,6 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
-
-  String tr(String english, String burmese) {
-    return widget.language == 'my' ? burmese : english;
-  }
 
   @override
   void initState() {
@@ -60,7 +55,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     super.dispose();
   }
 
-  Future<void> signUp() async {
+  Future<void> signUp(AppLanguage lang) async {
     FocusScope.of(context).unfocus();
 
     if (!formKey.currentState!.validate()) {
@@ -78,10 +73,10 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     if (success && mounted) {
       Alert.show(
         context,
-        message: tr('Sign up successful', 'စာရင်းသွင်းခြင်း အောင်မြင်ပါသည်'),
+        message: lang.signUpSuccess,
         type: AlertType.success,
       );
-      goToLogin();
+      goToLogin(lang);
     } else if (mounted) {
       final state = ref.read(authViewModelProvider);
       if (state.hasError) {
@@ -91,10 +86,10 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     }
   }
 
-  void goToLogin() {
+  void goToLogin(AppLanguage lang) {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => LoginPage(language: widget.language)),
+      MaterialPageRoute(builder: (context) => LoginPage(language: lang.languageCode)),
     );
   }
 
@@ -102,6 +97,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authViewModelProvider);
     final isLoading = authState.isLoading;
+    final lang = ref.watch(appLanguageProvider);
 
     return PopScope(
       canPop: !widget.isForced,
@@ -132,7 +128,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                         ),
                       SizedBox(width: widget.isForced ? 0 : 18),
                       Text(
-                        tr('SIGN UP', 'စာရင်းသွင်းရန်'),
+                        lang.signUp,
                         style: const TextStyle(color: gold, fontSize: 20, fontWeight: FontWeight.w700),
                       ),
                     ],
@@ -159,33 +155,33 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                       child: Column(
                         children: [
                           Text(
-                            tr('Register for Wealth Flow', 'Wealth Flow အတွက် စာရင်းသွင်းပါ'),
+                            lang.registerForWealthFlow,
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 20),
                           _SignupField(
                             controller: usernameController,
-                            hintText: tr('Username', 'အသုံးပြုသူအမည်'),
+                            hintText: lang.username,
                             icon: Icons.person,
-                            validator: (value) => value == null || value.trim().isEmpty ? tr('Enter username', 'အသုံးပြုသူအမည် ထည့်ပါ') : null,
+                            validator: (value) => value == null || value.trim().isEmpty ? lang.enterUsername : null,
                           ),
                           const SizedBox(height: 14),
                           _SignupField(
                             controller: emailController,
-                            hintText: tr('Email Address', 'အီးမေးလ်လိပ်စာ'),
+                            hintText: lang.emailAddress,
                             icon: Icons.email,
                             keyboardType: TextInputType.emailAddress,
                             validator: (value) {
-                              if (value == null || value.trim().isEmpty) return tr('Enter email', 'အီးမေးလ် ထည့်ပါ');
-                              if (!value.contains('@')) return tr('Enter valid email', 'မှန်ကန်သော အီးမေးလ် ထည့်ပါ');
+                              if (value == null || value.trim().isEmpty) return lang.enterEmail;
+                              if (!value.contains('@')) return lang.enterValidEmail;
                               return null;
                             },
                           ),
                           const SizedBox(height: 14),
                           _SignupField(
                             controller: passwordController,
-                            hintText: tr('Password', 'စကားဝှက်'),
+                            hintText: lang.password,
                             icon: Icons.lock,
                             obscureText: obscurePassword,
                             suffixIcon: IconButton(
@@ -193,15 +189,15 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                               icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.white, size: 22),
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) return tr('Enter password', 'စကားဝှက် ထည့်ပါ');
-                              if (value.length < 6) return tr('Minimum 6 characters', 'အနည်းဆုံး စာလုံး ၆ လုံး ထည့်ပါ');
+                              if (value == null || value.isEmpty) return lang.enterPassword;
+                              if (value.length < 6) return lang.minimum6Chars;
                               return null;
                             },
                           ),
                           const SizedBox(height: 14),
                           _SignupField(
                             controller: confirmPasswordController,
-                            hintText: tr('Confirm Password', 'စကားဝှက် အတည်ပြုပါ'),
+                            hintText: lang.confirmPassword,
                             icon: Icons.lock_reset,
                             obscureText: obscureConfirmPassword,
                             suffixIcon: IconButton(
@@ -209,15 +205,15 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                               icon: Icon(obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, color: Colors.white, size: 22),
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) return tr('Confirm password', 'စကားဝှက် အတည်ပြုပါ');
-                              if (value != passwordController.text) return tr('Passwords do not match', 'စကားဝှက်များ မကိုက်ညီပါ');
+                              if (value == null || value.isEmpty) return lang.confirmPassword;
+                              if (value != passwordController.text) return lang.passwordsDoNotMatch;
                               return null;
                             },
                           ),
                           const SizedBox(height: 14),
                           _SignupField(
                             controller: referralController,
-                            hintText: tr('Referral (Optional)', 'ရည်ညွှန်းကုဒ် (ရှိလျှင်)'),
+                            hintText: lang.referralOptional,
                             icon: Icons.card_giftcard,
                             enabled: !widget.isForced, // Lock if forced from deep link
                             validator: (value) => null,
@@ -227,7 +223,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                             width: double.infinity,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: isLoading ? null : signUp,
+                              onPressed: isLoading ? null : () => signUp(lang),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: gold,
                                 disabledBackgroundColor: gold.withOpacity(0.6),
@@ -235,7 +231,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                               ),
                               child: isLoading
                                   ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black))
-                                  : Text(tr('SIGN UP', 'စာရင်းသွင်းမည်'), style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w800)),
+                                  : Text(lang.signUp, style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w800)),
                             ),
                           ),
                         ],
@@ -247,11 +243,11 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(tr('Already have an account?', 'အကောင့်ရှိပြီးသားလား?'), style: const TextStyle(color: Colors.white, fontSize: 16)),
+                        Text(lang.alreadyHaveAccount, style: const TextStyle(color: Colors.white, fontSize: 16)),
                         const SizedBox(width: 9),
                         GestureDetector(
-                          onTap: goToLogin,
-                          child: Text(tr('LOGIN', 'ဝင်ရောက်မည်'), style: const TextStyle(color: gold, fontSize: 17, fontWeight: FontWeight.w700)),
+                          onTap: () => goToLogin(lang),
+                          child: Text(lang.login, style: const TextStyle(color: gold, fontSize: 17, fontWeight: FontWeight.w700)),
                         ),
                       ],
                     ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../localization/app_language.dart';
 import '../../view-model/account-vm/user_vm.dart';
 import '../../service/snackbar_service.dart';
 
@@ -24,20 +25,16 @@ class _ReferralManagementPageState extends ConsumerState<ReferralManagementPage>
   static const Color background = Color(0xFF090D13);
   static const Color cardColor = Color(0xFF171920);
 
-  String tr(String english, String burmese) {
-    return widget.language == 'my' ? burmese : english;
-  }
-
   @override
   void dispose() {
     _referralController.dispose();
     super.dispose();
   }
 
-  Future<void> _submitReferral() async {
+  Future<void> _submitReferral(AppLanguage lang) async {
     final code = _referralController.text.trim();
     if (code.isEmpty) {
-      Alert.show(context, message: tr('Please enter a referral code', 'ကျေးဇူးပြု၍ ရည်ညွှန်းကုဒ်ထည့်ပါ'), type: AlertType.warning);
+      Alert.show(context, message: lang.pleaseEnterReferralCode, type: AlertType.warning);
       return;
     }
 
@@ -49,7 +46,7 @@ class _ReferralManagementPageState extends ConsumerState<ReferralManagementPage>
       if (mounted) {
         setState(() => _isSubmitting = false);
         if (error == null) {
-          Alert.show(context, message: tr('Referral added successfully!', 'ရည်ညွှန်းကုဒ် အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ'), type: AlertType.success);
+          Alert.show(context, message: lang.referralAddedSuccess, type: AlertType.success);
           _referralController.clear();
         } else {
           Alert.show(context, message: error, type: AlertType.error);
@@ -61,6 +58,7 @@ class _ReferralManagementPageState extends ConsumerState<ReferralManagementPage>
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userProfileProvider);
+    final lang = ref.watch(appLanguageProvider);
 
     return Scaffold(
       backgroundColor: background,
@@ -72,7 +70,7 @@ class _ReferralManagementPageState extends ConsumerState<ReferralManagementPage>
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          tr('Earn More', 'ပိုမိုရရှိရန်'),
+          lang.earnMore,
           style: const TextStyle(color: gold, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -101,12 +99,12 @@ class _ReferralManagementPageState extends ConsumerState<ReferralManagementPage>
                   const Icon(Icons.shield, color: gold, size: 80),
                   const SizedBox(height: 25),
                   Text(
-                    tr('Referral Program', 'ရည်ညွှန်းအစီအစဉ်'),
+                    lang.referralProgram,
                     style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    tr('Enter a referral code to unlock more earnings and connect with your team.', 'ပိုမိုဝင်ငွေရရှိရန်နှင့် သင့်အဖွဲ့နှင့် ချိတ်ဆက်ရန် ရည်ညွှန်းကုဒ်ကို ထည့်သွင်းပါ။'),
+                    lang.enterReferralCodeMsg,
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
@@ -124,7 +122,7 @@ class _ReferralManagementPageState extends ConsumerState<ReferralManagementPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          hasReferrer ? tr('Active Referrer', 'လက်ရှိ ရည်ညွှန်းသူ') : tr('Enter Referral Code', 'ရည်ညွှန်းကုဒ် ထည့်ပါ'),
+                          hasReferrer ? lang.activeReferrer : lang.enterReferralCode,
                           style: const TextStyle(color: gold, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 15),
@@ -155,7 +153,7 @@ class _ReferralManagementPageState extends ConsumerState<ReferralManagementPage>
                                 controller: _referralController,
                                 style: const TextStyle(color: Colors.white),
                                 decoration: InputDecoration(
-                                  hintText: tr('Referral Code', 'ရည်ညွှန်းကုဒ်'),
+                                  hintText: lang.referralCode,
                                   hintStyle: const TextStyle(color: Colors.grey),
                                   filled: true,
                                   fillColor: const Color(0xFF181A21),
@@ -169,14 +167,14 @@ class _ReferralManagementPageState extends ConsumerState<ReferralManagementPage>
                                 width: double.infinity,
                                 height: 52,
                                 child: ElevatedButton(
-                                  onPressed: _isSubmitting ? null : _submitReferral,
+                                  onPressed: _isSubmitting ? null : () => _submitReferral(lang),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: gold,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                                   ),
                                   child: _isSubmitting
                                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                                      : Text(tr('SAVE CODE', 'ကုဒ်သိမ်းဆည်းမည်'), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                                      : Text(lang.saveCode, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
                                 ),
                               ),
                             ],

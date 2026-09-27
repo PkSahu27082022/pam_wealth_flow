@@ -8,6 +8,36 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  /// Generate a unique 6-digit numeric userId
+  Future<String> _generateUniqueUserId() async {
+    final rnd = Random();
+    while (true) {
+      final candidate = (100000 + rnd.nextInt(900000)).toString();
+      final query = await _firestore
+          .collection('users')
+          .where('userId', isEqualTo: candidate)
+          .limit(1)
+          .get();
+      if (query.docs.isEmpty) {
+        return candidate;
+      }
+    }
+  }
+
+  /// Ensure every user doc has a 6-digit userId in Firestore
+  Future<String> ensureUserId(String uid, String currentUserId) async {
+    if (currentUserId.isNotEmpty) return currentUserId;
+    final newUserId = await _generateUniqueUserId();
+    try {
+      await _firestore.collection('users').doc(uid).set({
+        'userId': newUserId,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print("Error setting userId: $e");
+    }
+    return newUserId;
+  }
+
   /// Generate a unique 6-character alphanumeric referral code
   String _generateReferralCode(String username) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -29,7 +59,29 @@ class AuthService {
     try {
       DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
       if (doc.exists) {
-        return UserModel.fromMap(doc.data() as Map<String, dynamic>);
+        final user = UserModel.fromMap(doc.data() as Map<String, dynamic>, docId: doc.id);
+        if (user.userId.isEmpty) {
+          final newUserId = await ensureUserId(uid, user.userId);
+          return UserModel(
+            uid: user.uid,
+            userId: newUserId,
+            username: user.username,
+            email: user.email,
+            myReferralCode: user.myReferralCode,
+            referredBy: user.referredBy,
+            language: user.language,
+            createdAt: user.createdAt,
+            activeTier: user.activeTier,
+            balance: user.balance,
+            totalEarned: user.totalEarned,
+            tasksCompletedToday: user.tasksCompletedToday,
+            lastTaskDate: user.lastTaskDate,
+            planActivatedAt: user.planActivatedAt,
+            watchedVideoIds: user.watchedVideoIds,
+            role: user.role,
+          );
+        }
+        return user;
       }
     } catch (e) {
       print("Error fetching user profile: $e");
@@ -47,7 +99,7 @@ class AuthService {
   }
 
   /// Login User with Email and Password
-  Future<String?> loginUser({
+  Future<UserModel?> loginUser({
     required String email,
     required String password,
   }) async {
@@ -58,35 +110,99 @@ class AuthService {
       );
 
       String uid = userCredential.user!.uid;
+      final cleanEmail = email.trim().toLowerCase();
 
       // Fetch user data from Firestore
       DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
-      if (userDoc.exists) {
-        UserModel user = UserModel.fromMap(userDoc.data() as Map<String, dynamic>);
-        await LocalStorageService.saveUserLoginStatus(
-          true,
-          uid,
-          email.trim(),
-          user.username,
+      UserModel user;
+      if (userDoc.exists && userDoc.data() != null) {
+        user = UserModel.fromMap(userDoc.data() as Map<String, dynamic>, docId: userDoc.id);
+      } else {
+        final bool isAdminEmail = cleanEmail == 'wealthadmin@gmail.com' || cleanEmail.contains('admin');
+        user = UserModel(
+          uid: uid,
+          username: userCredential.user?.displayName ?? 'Pam Wealth Flow',
+          email: email.trim(),
+          myReferralCode: '',
+          referredBy: '',
+          language: 'en',
+          role: isAdminEmail ? 'admin' : 'user',
         );
-        // Also save language from firestore to local if available
+      }
+
+      // Ensure 6-digit userId exists
+      if (user.userId.isEmpty) {
+        final newUserId = await ensureUserId(uid, user.userId);
+        user = UserModel(
+          uid: user.uid,
+          userId: newUserId,
+          username: user.username,
+          email: user.email,
+          myReferralCode: user.myReferralCode,
+          referredBy: user.referredBy,
+          language: user.language,
+          createdAt: user.createdAt,
+          activeTier: user.activeTier,
+          balance: user.balance,
+          totalEarned: user.totalEarned,
+          tasksCompletedToday: user.tasksCompletedToday,
+          lastTaskDate: user.lastTaskDate,
+          planActivatedAt: user.planActivatedAt,
+          watchedVideoIds: user.watchedVideoIds,
+          role: user.role,
+        );
+      }
+
+      final bool isAdmin = user.isAdmin || cleanEmail == 'wealthadmin@gmail.com';
+      if (isAdmin && user.role != 'admin') {
+        user = UserModel(
+          uid: user.uid,
+          userId: user.userId,
+          username: user.username,
+          email: user.email,
+          myReferralCode: user.myReferralCode,
+          referredBy: user.referredBy,
+          language: user.language,
+          createdAt: user.createdAt,
+          activeTier: user.activeTier,
+          balance: user.balance,
+          totalEarned: user.totalEarned,
+          tasksCompletedToday: user.tasksCompletedToday,
+          lastTaskDate: user.lastTaskDate,
+          planActivatedAt: user.planActivatedAt,
+          watchedVideoIds: user.watchedVideoIds,
+          role: 'admin',
+        );
+        await _firestore.collection('users').doc(uid).set({
+          'role': 'admin',
+        }, SetOptions(merge: true));
+      }
+
+      await LocalStorageService.saveUserLoginStatus(
+        true,
+        uid,
+        email.trim(),
+        user.username,
+        role: user.role,
+      );
+      if (user.language.isNotEmpty) {
         await LocalStorageService.saveLanguage(user.language);
       }
 
-      return null; // Success
+      return user;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        return "Invalid email or password. Please try again.";
+        throw Exception("Invalid email or password. Please try again.");
       } else if (e.code == 'invalid-email') {
-        return "The email address is badly formatted.";
+        throw Exception("The email address is badly formatted.");
       } else if (e.code == 'user-disabled') {
-        return "This user account has been disabled.";
+        throw Exception("This user account has been disabled.");
       } else if (e.code == 'too-many-requests') {
-        return "Too many failed attempts. Please try again later.";
+        throw Exception("Too many failed attempts. Please try again later.");
       }
-      return e.message ?? "Authentication failed.";
+      throw Exception(e.message ?? "Authentication failed.");
     } catch (e) {
-      return "An unexpected error occurred: ${e.toString()}";
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
     }
   }
 
@@ -132,11 +248,13 @@ class AuthService {
 
       String uid = userCredential.user!.uid;
       String uniqueMyCode = _generateReferralCode(username);
+      String uniqueUserId = await _generateUniqueUserId();
       String currentLang = await LocalStorageService.getLanguage() ?? 'en';
 
       // 4. Save User Profile in Firestore - Start with 'None' plan
       UserModel newUser = UserModel(
         uid: uid,
+        userId: uniqueUserId,
         username: username.trim(),
         email: email.trim(),
         myReferralCode: uniqueMyCode,
@@ -158,6 +276,7 @@ class AuthService {
         uid,
         email.trim(),
         username.trim(),
+        role: newUser.role,
       );
 
       return null; // Success (No error message)
@@ -177,6 +296,15 @@ class AuthService {
 
   /// Logout User
   Future<void> logout() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid != null) {
+      try {
+        await _firestore.collection('users').doc(uid).update({
+          'isOnline': false,
+          'lastSeen': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {}
+    }
     await _auth.signOut();
     await LocalStorageService.clearUserData();
   }

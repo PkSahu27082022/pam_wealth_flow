@@ -1,11 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../service/admin_service.dart';
 import '../../model/deposit_request_model.dart';
+import '../../model/user_model.dart';
 
 final adminServiceProvider = Provider((ref) => AdminService());
 
 final adminStatsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return ref.watch(adminServiceProvider).getAdminStats();
+});
+
+final allUsersProvider = StreamProvider.autoDispose<List<UserModel>>((ref) {
+  return ref.watch(adminServiceProvider).getAllUsers();
 });
 
 final walletAddressProvider = FutureProvider.autoDispose<String?>((ref) async {
@@ -31,6 +36,7 @@ class AdminViewModel {
     final result = await _ref.read(adminServiceProvider).manualDeposit(uid, amount);
     if (result == null) {
       _ref.invalidate(adminStatsProvider);
+      _ref.invalidate(allUsersProvider);
     }
     return result;
   }
@@ -39,6 +45,7 @@ class AdminViewModel {
     final result = await _ref.read(adminServiceProvider).processDepositRequest(requestId, approve);
     if (result == null) {
       _ref.invalidate(adminStatsProvider);
+      _ref.invalidate(allUsersProvider);
     }
     return result;
   }

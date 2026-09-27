@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../localization/app_language.dart';
 
-class HelpCenterScreen extends StatelessWidget {
+class HelpCenterScreen extends ConsumerWidget {
   const HelpCenterScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const backgroundColor = Color(0xFF0F1218);
     const cardBackgroundColor = Color(0xFF161B22);
     const goldColor = Color(0xFFE5B83B);
     const iconTileBgColor = Color(0xFF262118);
     const borderColor = Color(0xFF2A313D);
+
+    final lang = ref.watch(appLanguageProvider);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -20,9 +24,9 @@ class HelpCenterScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text(
-          'Help Center',
-          style: TextStyle(
+        title: Text(
+          lang.helpCenter,
+          style: const TextStyle(
             color: goldColor,
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -47,9 +51,9 @@ class HelpCenterScreen extends StatelessWidget {
               const SizedBox(height: 16),
 
               // Title Header
-              const Text(
-                'How can we help you?',
-                style: TextStyle(
+              Text(
+                lang.howCanWeHelpYou,
+                style: const TextStyle(
                   color: goldColor,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -60,8 +64,8 @@ class HelpCenterScreen extends StatelessWidget {
               // Live Chat Option Card
               _buildSupportOption(
                 icon: Icons.chat_bubble,
-                title: 'Live Chat',
-                subtitle: 'Speak with our support team now',
+                title: lang.liveChat,
+                subtitle: lang.speakWithSupportTeam,
                 cardColor: cardBackgroundColor,
                 iconBgColor: iconTileBgColor,
                 goldColor: goldColor,
@@ -74,8 +78,8 @@ class HelpCenterScreen extends StatelessWidget {
               // Email Support Option Card
               _buildSupportOption(
                 icon: Icons.email,
-                title: 'Email Support',
-                subtitle: 'Send us a message anytime',
+                title: lang.emailSupport,
+                subtitle: lang.sendUsMessageAnytime,
                 cardColor: cardBackgroundColor,
                 iconBgColor: iconTileBgColor,
                 goldColor: goldColor,
@@ -97,20 +101,20 @@ class HelpCenterScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Common Questions',
-                      style: TextStyle(
+                    Text(
+                      lang.commonQuestions,
+                      style: const TextStyle(
                         color: goldColor,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildQuestionItem('• How to withdraw funds?'),
+                    _buildQuestionItem(lang.howToWithdraw),
                     const SizedBox(height: 12),
-                    _buildQuestionItem('• What are VIP levels?'),
+                    _buildQuestionItem(lang.whatAreVipLevels),
                     const SizedBox(height: 12),
-                    _buildQuestionItem('• How to invite friends?'),
+                    _buildQuestionItem(lang.howToInviteFriends),
                   ],
                 ),
               ),

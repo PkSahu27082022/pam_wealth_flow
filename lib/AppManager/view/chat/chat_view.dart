@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
-class ChatPage extends StatefulWidget {
+import '../../localization/app_language.dart';
+import '../../model/user_model.dart';
+import '../../service/deep_link_service.dart';
+import '../../view-model/account-vm/user_vm.dart';
+import '../../view-model/chat-vm/chat_vm.dart';
+import '../account/referral_management_view.dart';
+import '../home/home_view.dart';
+import 'chat_conversation_view.dart';
+
+class ChatPage extends ConsumerWidget {
   final String language;
 
   const ChatPage({
@@ -8,484 +19,315 @@ class ChatPage extends StatefulWidget {
     required this.language,
   });
 
-  @override
-  State<ChatPage> createState() => _ChatPageState();
-}
-
-class _ChatPageState extends State<ChatPage> {
-  // ===========================================================================
-  // COLORS
-  // ===========================================================================
-
   static const Color gold = Color(0xFFDDB83A);
   static const Color background = Color(0xFF090D13);
-  static const Color bubbleColor = Color(0xFF171920);
-  static const Color inputColor = Color(0xFF292823);
-  static const Color borderColor = Color(0xFF50525A);
+  static const Color cardColor = Color(0xFF171920);
 
-  final TextEditingController messageController =
-  TextEditingController();
-
-  final ScrollController scrollController =
-  ScrollController();
-
-  // ===========================================================================
-  // LANGUAGE
-  // ===========================================================================
-
-  String tr(String english, String burmese) {
-    return widget.language == 'my' ? burmese : english;
-  }
-
-  // ===========================================================================
-  // MESSAGES
-  // ===========================================================================
-
-  final List<Map<String, dynamic>> messages = [
-    {
-      'sender': 'System',
-      'message': 'Hello! Welcome to PAM Wealth Flow.',
-      'time': '09:00 AM',
-      'isMe': false,
-    },
-    {
-      'sender': 'Support',
-      'message': 'How are you? How can I help you today?',
-      'time': '09:05 AM',
-      'isMe': false,
-    },
-    {
-      'sender': 'Me',
-      'message': "I'm doing well, thank you.",
-      'time': '09:10 AM',
-      'isMe': true,
-    },
-    {
-      'sender': 'Support',
-      'message':
-      'Would you like to know about our new investment plans?',
-      'time': '09:12 AM',
-      'isMe': false,
-    },
-    {
-      'sender': 'Me',
-      'message':
-      "Yes, I'm interested. Please explain the details.",
-      'time': '09:15 AM',
-      'isMe': true,
-    },
-  ];
-
-  // ===========================================================================
-  // SEND MESSAGE
-  // ===========================================================================
-
-  void sendMessage() {
-    final text = messageController.text.trim();
-
-    if (text.isEmpty) {
-      return;
+  String _getReferralTag(UserModel user, UserModel currentUser, AppLanguage lang) {
+    if (user.isAdmin) {
+      return lang.adminSupport;
     }
+    if (currentUser.referredBy.isNotEmpty && user.myReferralCode == currentUser.referredBy) {
+      return lang.uplineReferrer;
+    }
+    return lang.downlineMember;
+  }
 
-    setState(() {
-      messages.add({
-        'sender': 'Me',
-        'message': text,
-        'time': '09:20 AM',
-        'isMe': true,
-      });
-
-      messageController.clear();
-    });
-
-    Future.delayed(
-      const Duration(milliseconds: 100),
-          () {
-        if (scrollController.hasClients) {
-          scrollController.animateTo(
-            scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      },
-    );
+  Color _getTagColor(UserModel user, UserModel currentUser) {
+    if (user.isAdmin) {
+      return Colors.redAccent;
+    }
+    if (currentUser.referredBy.isNotEmpty && user.myReferralCode == currentUser.referredBy) {
+      return gold;
+    }
+    return Colors.lightBlueAccent;
   }
 
   @override
-  void dispose() {
-    messageController.dispose();
-    scrollController.dispose();
-    super.dispose();
-  }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(appLanguageProvider);
+    final currentUser = ref.watch(userProfileProvider).value;
+    final contactsAsync = ref.watch(connectedContactsProvider);
 
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: background,
-
-      resizeToAvoidBottomInset: true,
-
       body: SafeArea(
         bottom: false,
-
         child: Column(
           children: [
-            // ================================================================
-            // TITLE
-            // ================================================================
-
+            // HEADER
             Container(
               width: double.infinity,
-
-              padding: const EdgeInsets.fromLTRB(
-                28,
-                25,
-                28,
-                20,
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+              decoration: const BoxDecoration(
+                color: Color(0xFF171A21),
+                border: Border(bottom: BorderSide(color: Color(0xFF20242B), width: 1)),
               ),
-
-              alignment: Alignment.centerLeft,
-
-              child: Text(
-                tr(
-                  'Chat',
-                  'စကားပြောရန်',
-                ),
-
-                style: const TextStyle(
-                  color: gold,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lang.chat,
+                        style: const TextStyle(
+                          color: gold,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        lang.connectedTeam,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (currentUser != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: currentUser.isOnline ? Colors.green.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: currentUser.isOnline ? Colors.greenAccent : Colors.grey,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: currentUser.isOnline ? Colors.greenAccent : Colors.grey,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            currentUser.isOnline ? lang.online : lang.offline,
+                            style: TextStyle(
+                              color: currentUser.isOnline ? Colors.greenAccent : Colors.grey,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
 
-            // ================================================================
-            // CHAT LIST
-            // ================================================================
-
+            // CONTACTS LIST
             Expanded(
-              child: ListView.builder(
-                controller: scrollController,
+              child: contactsAsync.when(
+                data: (contacts) {
+                  if (contacts.isEmpty) {
+                    return Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(28.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.people_outline,
+                              color: gold,
+                              size: 70,
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              lang.noConnectedContacts,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              lang.inviteFriendsToChat,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 30),
+                            if (currentUser != null) ...[
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    DeepLinkService.shareReferralLink(
+                                      referralCode: currentUser.myReferralCode,
+                                      appName: "PAM Wealth Flow",
+                                      language: lang.languageCode,
+                                    );
+                                  },
+                                  icon: const Icon(Icons.share, color: Colors.black),
+                                  label: Text(
+                                    lang.registerNow,
+                                    style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: gold,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              if (currentUser.referredBy.isEmpty)
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 50,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ReferralManagementPage(language: lang.languageCode),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.shield, color: gold),
+                                    label: Text(
+                                      lang.enterReferralCode,
+                                      style: const TextStyle(color: gold, fontWeight: FontWeight.bold, fontSize: 15),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: gold, width: 1.3),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
-                padding: const EdgeInsets.fromLTRB(
-                  28,
-                  10,
-                  28,
-                  20,
-                ),
+                  return ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    itemCount: contacts.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final contact = contacts[index];
+                      final tag = currentUser != null ? _getReferralTag(contact, currentUser, lang) : '';
+                      final tagColor = currentUser != null ? _getTagColor(contact, currentUser) : gold;
 
-                physics: const BouncingScrollPhysics(),
-
-                itemCount: messages.length,
-
-                itemBuilder: (context, index) {
-                  final message = messages[index];
-
-                  return _ChatBubble(
-                    sender: message['sender'],
-                    message: message['message'],
-                    time: message['time'],
-                    isMe: message['isMe'],
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: borderColor, width: 1),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          leading: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: const Color(0xFF292E37),
+                                child: Text(
+                                  contact.username.isNotEmpty ? contact.username[0].toUpperCase() : 'U',
+                                  style: const TextStyle(color: gold, fontSize: 20, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: contact.isOnline ? Colors.greenAccent : Colors.grey,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: cardColor, width: 2),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  contact.username,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: tagColor.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: tagColor.withValues(alpha: 0.5), width: 1),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    color: tagColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              contact.isOnline
+                                  ? lang.online
+                                  : contact.lastSeen != null
+                                      ? '${lang.lastSeen} ${DateFormat('MMM dd, HH:mm').format(contact.lastSeen!)}'
+                                      : lang.offline,
+                              style: TextStyle(
+                                color: contact.isOnline ? Colors.greenAccent : Colors.white38,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right,
+                            color: gold,
+                            size: 24,
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatConversationPage(peerUser: contact),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
                   );
                 },
+                loading: () => const Center(child: CircularProgressIndicator(color: gold)),
+                error: (err, stack) => Center(
+                  child: Text('Error: $err', style: const TextStyle(color: Colors.red)),
+                ),
               ),
             ),
-
-            // ================================================================
-            // MESSAGE INPUT
-            // ================================================================
-
-            _MessageInput(
-              controller: messageController,
-              onSend: sendMessage,
-              hint: tr(
-                'Type a message...',
-                'မက်ဆေ့ချ်ရိုက်ထည့်ပါ...',
-              ),
-            ),
-
-            // ================================================================
-            // BOTTOM NAVIGATION
-            // ================================================================
-
-
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ===========================================================================
-// CHAT BUBBLE
-// ===========================================================================
-
-class _ChatBubble extends StatelessWidget {
-  final String sender;
-  final String message;
-  final String time;
-  final bool isMe;
-
-  const _ChatBubble({
-    required this.sender,
-    required this.message,
-    required this.time,
-    required this.isMe,
-  });
-
-  static const Color gold = Color(0xFFDDB83A);
-  static const Color bubbleColor = Color(0xFF171920);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 15,
-      ),
-
-      child: Column(
-        crossAxisAlignment:
-        isMe
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-
-        children: [
-          // ================================================================
-          // SENDER
-          // ================================================================
-
-          Padding(
-            padding: EdgeInsets.only(
-              left: isMe ? 0 : 0,
-              right: isMe ? 0 : 0,
-            ),
-
-            child: Text(
-              sender,
-
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 5),
-
-          // ================================================================
-          // MESSAGE
-          // ================================================================
-
-          Align(
-            alignment:
-            isMe
-                ? Alignment.centerRight
-                : Alignment.centerLeft,
-
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth:
-                MediaQuery.of(context).size.width * 0.72,
-              ),
-
-              padding: const EdgeInsets.symmetric(
-                horizontal: 15,
-                vertical: 10,
-              ),
-
-              decoration: BoxDecoration(
-                color:
-                isMe
-                    ? gold
-                    : bubbleColor,
-
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(20),
-                  topRight: const Radius.circular(20),
-
-                  bottomLeft:
-                  isMe
-                      ? const Radius.circular(20)
-                      : Radius.zero,
-
-                  bottomRight:
-                  isMe
-                      ? Radius.zero
-                      : const Radius.circular(20),
-                ),
-              ),
-
-              child: Text(
-                message,
-
-                style: TextStyle(
-                  color:
-                  isMe
-                      ? Colors.black
-                      : Colors.white,
-
-                  fontSize: 14,
-                  height: 1.35,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 7),
-
-          // ================================================================
-          // TIME
-          // ================================================================
-
-          Text(
-            time,
-
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ===========================================================================
-// MESSAGE INPUT
-// ===========================================================================
-
-class _MessageInput extends StatelessWidget {
-  final TextEditingController controller;
-  final VoidCallback onSend;
-  final String hint;
-
-  const _MessageInput({
-    required this.controller,
-    required this.onSend,
-    required this.hint,
-  });
-
-  static const Color gold = Color(0xFFDDB83A);
-  static const Color inputColor = Color(0xFF292823);
-  static const Color borderColor = Color(0xFF50525A);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-
-      padding: const EdgeInsets.fromLTRB(
-        14,
-        14,
-        14,
-        12,
-      ),
-
-      color: inputColor,
-
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-
-        children: [
-          // ================================================================
-          // TEXT FIELD
-          // ================================================================
-
-          Expanded(
-            child: TextField(
-              controller: controller,
-
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-              ),
-
-              cursorColor: gold,
-
-              minLines: 1,
-              maxLines: 3,
-
-              decoration: InputDecoration(
-                hintText: hint,
-
-                hintStyle: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-
-                filled: true,
-
-                fillColor: inputColor,
-
-                contentPadding:
-                const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 9,
-                ),
-
-                enabledBorder:
-                OutlineInputBorder(
-                  borderRadius:
-                  BorderRadius.circular(20),
-
-                  borderSide:
-                  const BorderSide(
-                    color: borderColor,
-                    width: 1.5,
-                  ),
-                ),
-
-                focusedBorder:
-                OutlineInputBorder(
-                  borderRadius:
-                  BorderRadius.circular(35),
-
-                  borderSide:
-                  const BorderSide(
-                    color: borderColor,
-                    width: 1.5,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 15),
-
-          // ================================================================
-          // SEND BUTTON
-          // ================================================================
-
-          GestureDetector(
-            onTap: onSend,
-
-            child: Container(
-              width: 45,
-              height: 45,
-
-              decoration: const BoxDecoration(
-                color: gold,
-                shape: BoxShape.circle,
-              ),
-
-              child: const Icon(
-                Icons.send,
-                color: Colors.black,
-                size: 25,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

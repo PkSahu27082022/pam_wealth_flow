@@ -5,6 +5,8 @@ import '../../model/user_model.dart';
 import '../../model/transaction_model.dart';
 import '../investment-vm/investment_tier_vm.dart';
 
+import '../../service/auth_service.dart';
+
 // Source of truth for Auth State
 final authStateProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
@@ -22,9 +24,31 @@ final userProfileProvider = StreamProvider<UserModel?>((ref) {
           .collection('users')
           .doc(authUser.uid)
           .snapshots()
-          .map((snapshot) {
+          .asyncMap((snapshot) async {
         if (!snapshot.exists || snapshot.data() == null) return null;
-        return UserModel.fromMap(snapshot.data() as Map<String, dynamic>);
+        final user = UserModel.fromMap(snapshot.data() as Map<String, dynamic>, docId: snapshot.id);
+        if (user.userId.isEmpty) {
+          final newUserId = await AuthService().ensureUserId(user.uid, user.userId);
+          return UserModel(
+            uid: user.uid,
+            userId: newUserId,
+            username: user.username,
+            email: user.email,
+            myReferralCode: user.myReferralCode,
+            referredBy: user.referredBy,
+            language: user.language,
+            createdAt: user.createdAt,
+            activeTier: user.activeTier,
+            balance: user.balance,
+            totalEarned: user.totalEarned,
+            tasksCompletedToday: user.tasksCompletedToday,
+            lastTaskDate: user.lastTaskDate,
+            planActivatedAt: user.planActivatedAt,
+            watchedVideoIds: user.watchedVideoIds,
+            role: user.role,
+          );
+        }
+        return user;
       });
     },
     loading: () => const Stream.empty(),
@@ -206,6 +230,7 @@ class UserViewModel {
 
   Future<String?> createDepositRequest({
     required String uid,
+    String userId = '',
     required String userName,
     required double amount,
     required String transactionHash,
@@ -213,6 +238,7 @@ class UserViewModel {
     try {
       await _firestore.collection('deposit_requests').add({
         'uid': uid,
+        'userId': userId,
         'userName': userName,
         'amount': amount,
         'transactionHash': transactionHash,
@@ -260,18 +286,28 @@ class UserViewModel {
     try {
       if (amount <= 0) return "Amount must be greater than zero.";
 
-      // Find member user document
+      final cleanTarget = targetEmailOrUid.trim();
+
+      // Find member user document by 6-digit userId, email, or uid
       QuerySnapshot query = await _firestore
           .collection('users')
-          .where('email', isEqualTo: targetEmailOrUid.trim())
+          .where('userId', isEqualTo: cleanTarget)
           .limit(1)
           .get();
+
+      if (query.docs.isEmpty) {
+        query = await _firestore
+            .collection('users')
+            .where('email', isEqualTo: cleanTarget)
+            .limit(1)
+            .get();
+      }
 
       DocumentReference targetDocRef;
       if (query.docs.isNotEmpty) {
         targetDocRef = query.docs.first.reference;
       } else {
-        targetDocRef = _firestore.collection('users').doc(targetEmailOrUid.trim());
+        targetDocRef = _firestore.collection('users').doc(cleanTarget);
       }
 
       final senderDocRef = _firestore.collection('users').doc(senderUid);

@@ -6,11 +6,26 @@ import '../model/transaction_model.dart';
 class AdminService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Stream all users for Admin User Directory
+  Stream<List<UserModel>> getAllUsers() {
+    return _firestore
+        .collection('users').limit(10)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .where((doc) => doc.data()['role'] != 'admin')
+              .map((doc) => UserModel.fromMap(doc.data(), docId: doc.id))
+              .toList(),
+        );
+  }
+
   // PAGE 1: Statistics
   Future<Map<String, dynamic>> getAdminStats() async {
     try {
       final usersSnap = await _firestore.collection('users').get();
-      final List<UserModel> allUsers = usersSnap.docs.map((doc) => UserModel.fromMap(doc.data())).toList();
+      final List<UserModel> allUsers = usersSnap.docs
+          .map((doc) => UserModel.fromMap(doc.data()))
+          .toList();
 
       Map<String, int> planCounts = {};
       double totalBalance = 0;
@@ -21,10 +36,11 @@ class AdminService {
       }
 
       // Total deposits from approved requests
-      final approvedSnap = await _firestore.collection('deposit_requests')
+      final approvedSnap = await _firestore
+          .collection('deposit_requests')
           .where('status', isEqualTo: 'approved')
           .get();
-      
+
       double totalDeposits = 0;
       for (var doc in approvedSnap.docs) {
         totalDeposits += (doc.data()['amount'] ?? 0.0).toDouble();
@@ -56,27 +72,46 @@ class AdminService {
   }
 
   // PAGE 2: Custom Deposit (Manual Admin Action)
-  Future<String?> manualDeposit(String targetUid, double amount) async {
+  Future<String?> manualDeposit(String targetId, double amount) async {
     try {
-      final docRef = _firestore.collection('users').doc(targetUid);
-      
+      final cleanId = targetId.trim();
+      if (cleanId.isEmpty) return "Please enter a User ID.";
+
+      // Search by 6-digit userId field first
+      QuerySnapshot query = await _firestore
+          .collection('users')
+          .where('userId', isEqualTo: cleanId)
+          .limit(1)
+          .get();
+
+      DocumentReference docRef;
+      if (query.docs.isNotEmpty) {
+        docRef = query.docs.first.reference;
+      } else {
+        // Fallback search by docId / uid
+        docRef = _firestore.collection('users').doc(cleanId);
+      }
+
       return await _firestore.runTransaction((transaction) async {
         final snapshot = await transaction.get(docRef);
-        if (!snapshot.exists) return "User ID not found.";
+        if (!snapshot.exists) return "User ID '$cleanId' not found.";
 
         final data = snapshot.data() as Map<String, dynamic>;
         final double currentBalance = (data['balance'] ?? 0.0).toDouble();
+        final String uid = snapshot.id;
+        final String userId = data['userId']?.toString() ?? '';
 
         transaction.update(docRef, {'balance': currentBalance + amount});
 
         // Log transaction
         final transRef = _firestore.collection('transactions').doc();
         transaction.set(transRef, {
-          'uid': targetUid,
+          'uid': uid,
+          'userId': userId,
           'userName': data['username'] ?? 'User',
           'amount': amount,
           'type': TransactionType.deposit.name,
-          'description': 'Admin Manual Deposit',
+          'description': 'Admin Deposit',
           'timestamp': FieldValue.serverTimestamp(),
         });
 
@@ -94,22 +129,22 @@ class AdminService {
         .where('status', isEqualTo: status.name)
         .snapshots()
         .map((snap) {
-      final list = snap.docs
-          .map((doc) => DepositRequestModel.fromMap(doc.id, doc.data()))
-          .toList();
-      list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      return list;
-    });
+          final list = snap.docs
+              .map((doc) => DepositRequestModel.fromMap(doc.id, doc.data()))
+              .toList();
+          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return list;
+        });
   }
 
   Future<String?> processDepositRequest(String requestId, bool approve) async {
     try {
       final reqRef = _firestore.collection('deposit_requests').doc(requestId);
-      
+
       return await _firestore.runTransaction((transaction) async {
         final reqSnap = await transaction.get(reqRef);
         if (!reqSnap.exists) return "Request not found.";
-        
+
         final reqData = reqSnap.data() as Map<String, dynamic>;
         if (reqData['status'] != 'pending') return "Request already processed.";
 
@@ -118,16 +153,18 @@ class AdminService {
           final amount = (reqData['amount'] ?? 0.0).toDouble();
           final userRef = _firestore.collection('users').doc(uid);
           final userSnap = await transaction.get(userRef);
-          
+
           if (userSnap.exists) {
             final userData = userSnap.data() as Map<String, dynamic>;
-            final double currentBalance = (userData['balance'] ?? 0.0).toDouble();
+            final double currentBalance = (userData['balance'] ?? 0.0)
+                .toDouble();
             transaction.update(userRef, {'balance': currentBalance + amount});
-            
+
             // Log transaction
             final transRef = _firestore.collection('transactions').doc();
             transaction.set(transRef, {
               'uid': uid,
+              'userId': reqData['userId'] ?? '',
               'userName': reqData['userName'],
               'amount': amount,
               'type': TransactionType.deposit.name,
